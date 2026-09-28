@@ -1,0 +1,33 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/web/index.html"
+    },
+    {
+      "source": "/index.html",
+      "destination": "/web/index.html"
+    },
+    {
+      "source": "/app.js",
+      "destination": "/web/app.js"
+    },
+    {
+      "source": "/style.css",
+      "destination": "/web/style.css"
+    },
+    {
+      "source": "/verification.css",
+      "destination": "/web/verification.css"
+    },
+    {
+      "source": "/favicon.svg",
+      "destination": "/web/favicon.svg"
+    },
+    {
+      "source": "/demo-agent-page",
+      "destination": "/web/demo-agent-page.html"
+    }
+  ]
+}
