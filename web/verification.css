@@ -1,0 +1,29 @@
+/* Verification details share the primary workbench design tokens. */
+.verification-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 13px;
+  border: 1px solid #d7e5d8;
+  border-radius: 8px;
+  background: #f5f9f3;
+  color: #4c6855;
+}
+.verification-note > span { color: #286b43; font: 13px var(--mono); }
+.verification-note p { margin: 0; font-size: 12px; line-height: 1.55; }
+.verification-note.not_run { border-color: #e7dbbb; background: #fffaf0; color: #765f2c; }
+.verification-note.not_run > span { color: #916b1e; }
+
+:root[data-theme="dark"] .verification-note {
+  border-color: #36513c;
+  background: #19281e;
+  color: #c4d8c8;
+}
+:root[data-theme="dark"] .verification-note > span { color: #a8dbb2; }
+:root[data-theme="dark"] .verification-note.not_run {
+  border-color: #5a4b2d;
+  background: #2b2519;
+  color: #ead69f;
+}
+:root[data-theme="dark"] .verification-note.not_run > span { color: #efd17b; }

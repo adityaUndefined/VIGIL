@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VIGIL Page Review</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <header><span class="mark">V</span><span>VIGIL</span><span class="header-note">PAGE REVIEW</span></header>
+  <main>
+    <p class="eyebrow">CURRENT TAB</p>
+    <h1 id="page-title">Ready to review</h1>
+    <p id="page-url" class="url">Open a webpage and check it before trusting its content.</p>
+    <button id="review" class="primary" type="button">Review this page</button>
+    <section id="result" class="hidden" aria-live="polite" aria-atomic="false" aria-label="Page review result">
+      <div class="decision-row"><span class="eyebrow">VIGIL DECISION</span><strong id="decision">—</strong></div>
+      <p id="summary"></p>
+      <ul id="evidence"></ul>
+      <button id="block" class="danger hidden" type="button">Block this page</button>
+    </section>
+    <p id="status" class="status" role="status" aria-live="polite">Analysis runs through your local VIGIL service.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local models
+models/
+*.gguf
+*.bin
+*.safetensors
+*.pt
+*.pth
+*.onnx
+
+# Node
+node_modules/
+
+# Build output
+dist/
+build/
+.next/
+out/
+
+# IDE / agent files
+.vscode/
+.idea/
+.codex/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs / temporary
+*.log
+tmp/
+temp/
+.cache/
+
+# Python test/cache
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Project-internal files
+conversation.md
+AGENTS.md
+graphify-out/
+recordings/
+.stitch-project.json
+
+# Generated design images
+design/stitch/*.png

@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "VIGIL Page Review",
+  "version": "0.1.0",
+  "description": "Review the current page with VIGIL and replace pages that receive a DENY decision.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["http://127.0.0.1:8000/*"],
+  "action": { "default_popup": "popup.html" }
+}
