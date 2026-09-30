@@ -1,7 +1,8 @@
 const contentInputs = {
   message: document.querySelector('#content-message'),
   url: document.querySelector('#content-url'),
-  html: document.querySelector('#content-html')
+  html: document.querySelector('#content-html'),
+  scan: document.querySelector('#content-scan')
 };
 const modeButtons = [...document.querySelectorAll('[data-mode]')];
 const analyzeButton = document.querySelector('#analyze');
@@ -37,7 +38,9 @@ function updateCount() {
     ? 'The address is checked as text; VIGIL will not visit the website.'
     : activeMode === 'html'
       ? 'HTML is scanned for visible and hidden instructions · Analysis stays on this device'
-      : 'Your message is analyzed on this device · It is not sent to a cloud service';
+      : activeMode === 'scan'
+        ? 'Text is extracted from the image on this device · The image is never uploaded'
+        : 'Your message is analyzed on this device · It is not sent to a cloud service';
 }
 
 function setMode(mode) {
@@ -103,6 +106,186 @@ async function refreshModelStatus() {
 }
 refreshModelStatus();
 
+/* --- Screenshot (OCR) scanner -------------------------------------------- */
+
+const scanState = {
+  engine: null,
+  busy: false,
+  file: null,
+  currentObjectUrl: ''
+};
+
+function scanElements() {
+  return {
+    dropzone: document.querySelector('#scan-dropzone'),
+    fileInput: document.querySelector('#scan-file'),
+    preview: document.querySelector('#scan-preview'),
+    image: document.querySelector('#scan-image'),
+    status: document.querySelector('#scan-status'),
+    rechoose: document.querySelector('#scan-rechoose'),
+    remove: document.querySelector('#scan-remove')
+  };
+}
+
+function loadTesseractFallback() {
+  return new Promise((resolve, reject) => {
+    const src = window.TESSERACT_FALLBACK_SRC;
+    if (!src) return reject(new Error('no fallback source'));
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('fallback load failed'));
+    document.head.append(script);
+  });
+}
+
+async function loadScanEngine() {
+  if (scanState.engine) return scanState.engine;
+  if (!('Tesseract' in window)) {
+    try { await loadTesseractFallback(); } catch { /* reported below */ }
+  }
+  if (!('Tesseract' in window)) {
+    throw new Error('The on-device scanner engine could not be loaded. Check your connection and reload the page.');
+  }
+  scanState.engine = await window.Tesseract.createWorker('eng');
+  return scanState.engine;
+}
+
+async function recognizeImage(file) {
+  const worker = await loadScanEngine();
+  const { data } = await worker.recognize(file);
+  return data.text || '';
+}
+
+function setScanStatus(message, isError = false) {
+  const { status } = scanElements();
+  status.textContent = message;
+  status.classList.toggle('is-error', isError);
+}
+
+function openFilePicker() {
+  scanElements().fileInput.click();
+}
+
+function acceptImage(file) {
+  const { preview, image, dropzone } = scanElements();
+  if (!file) return;
+  if (scanState.busy) return;
+  if (!file.type || !file.type.startsWith('image/')) {
+    setScanStatus('That file is not an image. Choose a PNG, JPEG, WebP, BMP, or GIF.', true);
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    setScanStatus('That image is larger than 10 MB. Choose a smaller screenshot.', true);
+    return;
+  }
+  if (scanState.currentObjectUrl) URL.revokeObjectURL(scanState.currentObjectUrl);
+  scanState.file = file;
+  scanState.currentObjectUrl = URL.createObjectURL(file);
+  image.src = scanState.currentObjectUrl;
+  preview.classList.remove('hidden');
+  dropzone.classList.add('hidden');
+  runOcr(file);
+}
+
+async function runOcr(file) {
+  scanState.busy = true;
+  setBusy(analyzeButton, true, 'Scanning…');
+  try {
+    setScanStatus('Reading the text from your image…');
+    const text = await recognizeImage(file);
+    const cleaned = text.replace(/[\t\x0b\f\r \u00a0]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+    if (!cleaned) {
+      setScanStatus('No readable text was found. Try a sharper, larger screenshot.', true);
+      return;
+    }
+    contentInputs.scan.value = cleaned;
+    updateCount();
+    setScanStatus(`Found ${cleaned.length.toLocaleString()} characters. Check the text, then run the review.`);
+  } catch (error) {
+    setScanStatus(error?.message || 'The scan failed. Try another image.', true);
+  } finally {
+    scanState.busy = false;
+    setBusy(analyzeButton, false, 'Review content');
+  }
+}
+
+function clearScan() {
+  const { preview, dropzone, fileInput } = scanElements();
+  if (scanState.currentObjectUrl) {
+    URL.revokeObjectURL(scanState.currentObjectUrl);
+    scanState.currentObjectUrl = '';
+  }
+  scanState.file = null;
+  contentInputs.scan.value = '';
+  preview.classList.add('hidden');
+  dropzone.classList.remove('hidden');
+  fileInput.value = '';
+  setScanStatus('');
+}
+
+function bindScanEvents() {
+  const { dropzone, fileInput, rechoose, remove } = scanElements();
+  dropzone.addEventListener('click', openFilePicker);
+  dropzone.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      openFilePicker();
+    }
+  });
+  dropzone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropzone.classList.add('is-dragover');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
+  dropzone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropzone.classList.remove('is-dragover');
+    acceptImage(event.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', () => acceptImage(fileInput.files[0]));
+  rechoose.addEventListener('click', (event) => {
+    event.stopPropagation();
+    openFilePicker();
+  });
+  remove.addEventListener('click', (event) => {
+    event.stopPropagation();
+    clearScan();
+  });
+}
+bindScanEvents();
+
+/* --- Visible #scanner anchor navigation ----------------------------------- */
+
+const scannerSection = document.querySelector('#scanner');
+
+function highlightScanner() {
+  if (!scannerSection) return;
+  scannerSection.classList.remove('panel-highlight');
+  void scannerSection.offsetWidth; /* restart the pulse animation */
+  scannerSection.classList.add('panel-highlight');
+  window.setTimeout(() => scannerSection.classList.remove('panel-highlight'), 1800);
+}
+
+function goToScanner(event) {
+  if (event) event.preventDefault();
+  if (history.replaceState) history.replaceState(null, '', '#scanner');
+  if (scannerSection) scannerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const heading = document.querySelector('#input-heading');
+  if (heading) heading.focus({ preventScroll: true });
+  highlightScanner();
+}
+
+function bindAnchorNav() {
+  const link = document.querySelector('.topbar-nav a[href="#scanner"]');
+  if (link) link.addEventListener('click', goToScanner);
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#scanner') goToScanner();
+  });
+  if (location.hash === '#scanner') goToScanner();
+}
+bindAnchorNav();
+
 modeButtons.forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
 Object.values(contentInputs).forEach((input) => input.addEventListener('input', () => {
   if (input === currentInput()) {
@@ -111,6 +294,7 @@ Object.values(contentInputs).forEach((input) => input.addEventListener('input', 
   }
 }));
 clearButton.addEventListener('click', () => {
+  if (activeMode === 'scan') clearScan();
   currentInput().value = '';
   updateCount();
   clearResult();
@@ -277,7 +461,7 @@ reviewForm.addEventListener('submit', async (event) => {
     if (generation !== analysisGeneration) return;
     showError(error.message, 'REVIEW ERROR', 'Could not analyze');
   } finally {
-    setBusy(analyzeButton, false, 'Analyze content');
+    setBusy(analyzeButton, false, 'Review content');
   }
 });
 

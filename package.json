@@ -4,7 +4,11 @@
   "type": "module",
   "scripts": {
     "design:stitch": "node scripts/generate-vigil-design.mjs",
+    "server": "python3 app.py",
     "start": "python3 app.py",
+    "fixtures": "python3 scripts/run_offline_fixtures.py",
+    "smoke": "python3 scripts/run_smoke_test.py",
+    "guard": "python3 agent/vigil_agent_guard.py demo",
     "test": "python3 scripts/run_offline_fixtures.py && python3 scripts/run_vision_tests.py"
   },
   "devDependencies": {

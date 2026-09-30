@@ -502,6 +502,95 @@ def check_action(content: str, action: str) -> dict:
     return {"decision": decision, "reason": reason, "analysis": result}
 
 
+# Machine-facing agent guard policy. The rules that decide ALLOW for an AI
+# agent are stricter than the human-facing ones: agents are denied on any
+# non-ALLOW content, and every gate is fail-closed on errors.
+GUARD_POLICY = {
+    "version": 1,
+    "default_action": "DENY",
+    "rules": [
+        "DENY any action when the underlying content review is not ALLOW",
+        "DENY agent actions that send credentials, private data, or payments",
+        "DENY navigation to links whose destination is governed by redirector, shortener, or tracking services",
+        "DENY any action VIGIL cannot recognize (fail closed)",
+        "ALLOW only safe read-only actions on ALLOW-reviewed content",
+    ],
+    "fail_closed": True,
+}
+
+GUARD_REDIRECT_HOSTS = {
+    "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly",
+    "cutt.ly", "rebrand.ly", "shorturl.at", "tiny.cc", "rb.gy", "t.ly",
+    "lnkd.in", "s.id", "shrtco.de", "click.linksynergy.com", "click.trx-hum.com",
+}
+
+
+def guard_redirect_findings(content: str) -> list[dict[str, str]]:
+    """Flag agent-facing links that resolve through redirector/shortener hosts."""
+    findings: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for match in URL_PATTERN.findall(content):
+        url = match.rstrip(".,;:!?)\"'")
+        _original, host = parse_hostname(url)
+        if not host or host in seen:
+            continue
+        seen.add(host)
+        base = host.rsplit(".", 1)[0] if host.count(".") > 1 else ""
+        if host in GUARD_REDIRECT_HOSTS or base in GUARD_REDIRECT_HOSTS:
+            findings.append(evidence(
+                "guard_redirect_link", "guard_redirect_link", "high",
+                f"The link resolves through a redirect or shortener service: {host}.",
+            ))
+            break
+    return findings
+
+
+def guard_action(content: str, action: str, agent_id: str = "") -> dict:
+    """Fail-closed policy gate for a proposed AI-agent action.
+
+    Unlike check_action (the human demo path), this gate never approves an
+    action on content that is not plainly ALLOW, and treats unrecognized
+    input as a denial rather than an error.
+    """
+    analysis = analyze_content(content)
+    normalized = action.lower()
+    sensitive = normalized in {"send_private_data", "send_credentials", "make_payment"}
+    readonly = normalized in {"summarize", "read_page", "navigate"}
+    hidden = any(item["type"] == "hidden_instruction" for item in analysis["evidence"])
+    redirect = guard_redirect_findings(content)
+
+    if hidden:
+        decision, reason = "DENY", "Hidden instructions aim to control an AI agent; the action must not proceed."
+    elif sensitive:
+        decision, reason = "DENY", "Agents must not send credentials, private data, or payments on behalf of a user."
+    elif redirect:
+        decision, reason = "DENY", "The destination resolves through a redirect or shortener service, which can hide the real target."
+    elif analysis["decision"] != "ALLOW":
+        decision, reason = "DENY", "Content review did not return ALLOW, so the agent action is blocked."
+    elif not readonly:
+        decision, reason = "DENY", "VIGIL does not recognize this action and fails closed."
+    else:
+        decision, reason = "ALLOW", "Read-only action on content with no known risk signals."
+
+    evidence = analysis["evidence"] + redirect
+    cited = [item["id"] for item in evidence if item["severity"] != "info"]
+    gate = {
+        "decision": decision,
+        "reason": reason,
+        "action": normalized,
+        "allowed": decision == "ALLOW",
+        "machine_tag": "ALLOWED_BY_GUARD" if decision == "ALLOW" else "DENIED_BY_GUARD",
+        "content_decision": analysis["decision"],
+        "policy": GUARD_POLICY,
+        "evidence": evidence,
+        "explanation": explanation(evidence, decision),
+        "cited_evidence_ids": cited,
+    }
+    if agent_id:
+        gate["agent_id"] = agent_id
+    return gate
+
+
 def pending_model_status() -> dict:
     return {
         "status": "pending",
@@ -760,6 +849,16 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("action must be text.")
                 result = enqueue_model_review(content, check_action(content, action)["analysis"], action)
                 self._json(200, result)
+            elif self.path == "/api/guard":
+                # Machine-facing fail-closed gate for AI agents. Deterministic
+                # rules only: no pending local-model states, no polling.
+                action = data.get("action", "")
+                agent_id = data.get("agent_id", "")
+                if not isinstance(action, str) or not action.strip():
+                    raise ValueError("action must be a non-empty string.")
+                if not isinstance(agent_id, str):
+                    raise ValueError("agent_id must be a string.")
+                self._json(200, guard_action(content, action, agent_id))
             else:
                 self._json(404, {"error": "Not found"})
         except (ValueError, json.JSONDecodeError) as exc:

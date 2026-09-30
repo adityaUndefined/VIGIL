@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "vigil_guard",
+  "description": "Consult the VIGIL fail-closed security gate before an AI agent performs any action on message, URL, or HTML content. Treat the response's `allowed` flag as binding: if `allowed` is false, the agent must not proceed and must surface `reason` to the user. The gate fails closed - if VIGIL is unreachable, deny the action.",
+  "strict": false,
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "content": {
+        "type": "string",
+        "description": "The exact message, URL, or HTML source the agent intends to act on."
+      },
+      "action": {
+        "type": "string",
+        "enum": ["navigate", "send_private_data", "send_credentials", "make_payment", "summarize", "read_page"],
+        "description": "The action the agent proposes to perform on the content."
+      },
+      "agent_id": {
+        "type": "string",
+        "description": "Optional identifier of the calling agent, included in the response for audit."
+      }
+    },
+    "required": ["content", "action"],
+    "additionalProperties": false
+  },
+  "response": {
+    "type": "object",
+    "properties": {
+      "decision": { "type": "string", "enum": ["ALLOW", "DENY"] },
+      "allowed": { "type": "boolean" },
+      "action": { "type": "string" },
+      "content_decision": { "type": "string", "enum": ["ALLOW", "WARN", "DENY", "UNKNOWN"] },
+      "reason": { "type": "string" },
+      "machine_tag": { "type": "string" },
+      "evidence": { "type": "array", "items": { "type": "object" } },
+      "explanation": { "type": "object" },
+      "policy": { "type": "object" },
+      "agent_id": { "type": "string" }
+    },
+    "required": ["decision", "allowed", "reason"]
+  }
+}

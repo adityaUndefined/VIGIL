@@ -6,6 +6,8 @@ VIGIL is a local-first security layer for messages, website addresses, and HTML.
 
 Its key focus is not only protecting people from deceptive content, but also detecting hidden instructions that attempt to manipulate AI agents.
 
+**Quick start → [BUILD.md](BUILD.md)** — run the analyzer, load the extension, and verify the build in under a minute. Zero dependencies: the core engine is pure Python standard library.
+
 ---
 
 ## Why VIGIL?
@@ -119,6 +121,9 @@ Screenshots are processed in the browser; the extracted text and coordinates are
 - **Chromium extension**  
   Review the current webpage directly from the browser.
 
+- **Fail-closed agent guard**  
+  A machine-facing policy gate (`POST /api/guard`) plus a Python client that AI agents consult before acting — hidden instructions, redirect-wrapped links, and sensitive actions are denied, and the gate fails closed when VIGIL is unreachable. See `agent/README.md`.
+
 ---
 
 ## How It Works
@@ -144,6 +149,9 @@ Agent Action   Explanation
       |
       v
 ALLOW / WARN / DENY
+```
+
+For AI agents, the same engine powers a stricter, fail-closed gate: agents call `POST /api/guard` (or the Python client in `agent/`) before acting, and only read-only actions on ALLOW-reviewed content are permitted. See `agent/README.md`.
 
 ## Running
 
