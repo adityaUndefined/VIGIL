@@ -126,6 +126,17 @@ def check_static_assets(base_url: str) -> None:
     _, _, html = http(base_url, "/")
     text = html.decode("utf-8", "replace")
     require("VIGIL" in text and "Private Security Review" in text, "/ is missing the VIGIL page markup")
+    # Scanner: topbar anchor target, screenshot OCR mode, and engine script.
+    require('id="scanner"' in text, "/ is missing the #scanner section target")
+    require('href="#scanner"' in text, "topbar Scanner link is missing")
+    require('data-mode="scan"' in text and 'id="scan-panel"' in text and 'id="scan-dropzone"' in text,
+            "/ is missing the screenshot (OCR) scanner UI")
+    require('id="content-scan"' in text, "scanner mode is missing its extracted-text input")
+    require("tesseract" in text.lower(), "the on-device OCR engine script is not referenced")
+    _, _, script = http(base_url, "/app.js")
+    app_js = script.decode("utf-8", "replace")
+    require("loadScanEngine" in app_js and "recognizeImage" in app_js and "goToScanner" in app_js,
+            "/app.js is missing the scanner and anchor-navigation wiring")
 
 
 def check_get_apis(base_url: str) -> None:
