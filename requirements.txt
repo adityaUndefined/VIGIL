@@ -1,0 +1,4 @@
+# VIGIL runtime dependencies.
+# The server uses only the Python standard library; this file exists so
+# deployment tooling that expects a requirements file finds nothing missing.
+# OCR and QR decoding run in the browser (web/vendor) — no Python CV packages.

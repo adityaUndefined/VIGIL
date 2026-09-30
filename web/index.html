@@ -18,7 +18,12 @@
   </script>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/verification.css">
+  <link rel="stylesheet" href="/vision.css">
+  <script src="/vendor/jsQR.js" defer></script>
+  <script src="/vendor/qrcode-generator.js" defer></script>
+  <script src="/vendor/tesseract/tesseract.min.js" defer></script>
   <script src="/app.js" defer></script>
+  <script src="/vision.js" defer></script>
 </head>
 <body>
   <header class="topbar">
@@ -26,6 +31,7 @@
     <nav class="topbar-nav" aria-label="Main navigation">
       <a href="#scanner">Scanner</a>
       <a href="#agent-review">Agent guard</a>
+      <a href="#vision" data-vision-link>VIGIL Vision</a>
       <a href="#how-it-works">How it works</a>
     </nav>
     <div class="topbar-actions">
@@ -60,9 +66,33 @@
 
         <form id="review-form" novalidate>
           <div class="input-modes" role="group" aria-label="Content type">
-            <button id="mode-message" class="input-mode active" type="button" aria-pressed="true" data-mode="message">Message</button>
-            <button id="mode-url" class="input-mode" type="button" aria-pressed="false" data-mode="url">Website URL</button>
-            <button id="mode-html" class="input-mode" type="button" aria-pressed="false" data-mode="html">HTML source</button>
+            <button id="mode-message" class="input-mode active" type="button" aria-pressed="true" data-mode="message">💬 Message</button>
+            <button id="mode-vision" class="input-mode input-mode-vision" type="button" aria-pressed="false" data-mode="vision">📸 VIGIL Vision</button>
+            <button id="mode-url" class="input-mode" type="button" aria-pressed="false" data-mode="url">🔗 URL</button>
+            <button id="mode-html" class="input-mode" type="button" aria-pressed="false" data-mode="html">📄 HTML</button>
+          </div>
+
+          <div id="vision-panel" class="vision-panel" data-input-panel="vision" hidden>
+            <div class="vision-hero">
+              <p class="eyebrow">VISUAL THREAT ANALYSIS</p>
+              <h3 class="vision-title">VIGIL VISION</h3>
+              <p class="vision-tagline">“See the threat behind the screenshot.”</p>
+              <p class="vision-subjects">Analyze suspicious: Messages • Emails • Websites • QR Codes • Payment Requests</p>
+            </div>
+            <div id="vision-dropzone" class="vision-dropzone" role="button" tabindex="0" aria-label="Upload a screenshot: drag and drop or browse files" aria-describedby="vision-privacy">
+              <span class="vision-drop-icon" aria-hidden="true">📤</span>
+              <p class="vision-drop-main">Drop screenshot here</p>
+              <p class="vision-drop-or">or</p>
+              <button id="vision-browse" class="button button-secondary" type="button">Browse Files</button>
+              <p class="vision-drop-formats">PNG • JPG • JPEG • WEBP</p>
+              <input id="vision-file-input" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+            </div>
+            <div class="vision-demo-row">
+              <button id="vision-demo" class="button button-quiet" type="button">TRY DEMO</button>
+              <span id="vision-demo-note" class="vision-demo-note">Safe synthetic examples — no real accounts or credentials</span>
+            </div>
+            <p id="vision-privacy" class="vision-privacy">🔒 Your screenshot is analyzed for security indicators. Avoid uploading passwords, OTPs or other sensitive credentials.</p>
+            <div id="vision-error" class="vision-error hidden" role="alert"></div>
           </div>
 
           <div id="message-panel" class="input-field" data-input-panel="message">
@@ -79,11 +109,11 @@
             <textarea id="content-html" maxlength="200000" spellcheck="false" placeholder="Paste the page source or message HTML…"></textarea>
           </div>
 
-          <div class="input-footer">
+          <div class="input-footer" id="text-input-footer">
             <span id="input-guidance">Your content is analyzed locally · Nothing is sent to a cloud service</span>
             <span id="char-count" class="char-count">0 / 200,000</span>
           </div>
-          <div class="input-actions">
+          <div class="input-actions" id="text-input-actions">
             <button id="clear-input" class="button button-quiet" type="button">Clear</button>
             <button id="analyze" class="button button-primary" type="submit"><span data-button-label>Review content</span><span aria-hidden="true">↗</span></button>
           </div>
@@ -124,6 +154,96 @@
           </div>
           <p class="empty-disclaimer">An ALLOW result is not a guarantee that content is safe.</p>
         </div>
+        <div id="vision-status" class="vision-status hidden" role="status" aria-live="polite">
+          <div class="vision-status-head">
+            <span class="vision-spinner" aria-hidden="true"></span>
+            <p class="eyebrow">VIGIL VISION · ANALYZING</p>
+          </div>
+          <ul id="vision-steps" class="vision-steps"></ul>
+        </div>
+
+        <div id="vision-result" class="vision-result hidden" aria-label="VIGIL Vision security review">
+          <div class="vision-result-top">
+            <div><p class="eyebrow">VIGIL VISION · SECURITY REVIEW</p>
+              <p class="vision-scenario-tag hidden" id="vision-scenario-tag">DEMO SCENARIO</p>
+            </div>
+            <span id="vision-decision" class="decision-pill warn">—</span>
+          </div>
+
+          <div class="vision-risk-card" id="vision-risk-card">
+            <div class="vision-risk-main">
+              <span id="vision-risk-level" class="vision-risk-level">—</span>
+              <div class="vision-risk-score"><span id="vision-risk-score">0</span><small>/ 100</small></div>
+            </div>
+            <div class="vision-risk-bar" aria-hidden="true"><div id="vision-risk-bar-fill"></div></div>
+            <div class="vision-risk-meta">
+              <div><span>OCR confidence</span><strong id="vision-ocr-confidence">—</strong></div>
+              <div><span>Regions located</span><strong id="vision-region-count">—</strong></div>
+            </div>
+            <div id="vision-confidence-notes" class="vision-confidence-notes"></div>
+          </div>
+
+          <h3 class="vision-section-title">DETECTED INDICATORS</h3>
+          <ul id="vision-indicator-list" class="vision-indicator-list"></ul>
+
+          <h3 class="vision-section-title">VISUAL EVIDENCE</h3>
+          <div class="vision-overlay-wrap">
+            <div class="vision-toggle-row" role="group" aria-label="Screenshot view">
+              <button id="vision-view-original" class="vision-toggle active" type="button" aria-pressed="true">BEFORE</button>
+              <button id="vision-view-analysis" class="vision-toggle" type="button" aria-pressed="false">AFTER · VIGIL ANALYSIS</button>
+            </div>
+            <div id="vision-canvas-holder" class="vision-canvas-holder"></div>
+            <p id="vision-overlay-hint" class="vision-overlay-hint hidden">Click a highlighted region on the AFTER view to inspect the evidence.</p>
+            <div id="vision-evidence-details" class="vision-evidence-details hidden" aria-live="polite">
+              <div class="vision-evidence-head">
+                <p class="eyebrow">EVIDENCE DETAILS</p>
+                <button id="vision-evidence-close" class="vision-evidence-close" type="button" aria-label="Close evidence details">×</button>
+              </div>
+              <p class="vision-ev-row"><span>INDICATOR</span><strong id="vision-ev-label">—</strong></p>
+              <p class="vision-ev-row"><span>DETECTED</span><strong id="vision-ev-detected">—</strong></p>
+              <p class="vision-ev-row"><span>SOURCE</span><strong id="vision-ev-source">—</strong></p>
+              <p class="vision-ev-row"><span>OCR CONFIDENCE</span><strong id="vision-ev-confidence">—</strong></p>
+              <p class="vision-ev-row vision-ev-reason"><span>REASON</span><strong id="vision-ev-reason">—</strong></p>
+              <p class="vision-ev-row" id="vision-ev-risk-row"><span>RISK CONTRIBUTION</span><strong id="vision-ev-risk">—</strong></p>
+            </div>
+          </div>
+
+          <h3 class="vision-section-title">EXTRACTED INFORMATION</h3>
+          <div class="vision-extracted">
+            <div class="vision-extracted-grid">
+              <div class="vision-ex-item"><span>URLS DETECTED</span><ul id="vision-ex-urls"></ul></div>
+              <div class="vision-ex-item"><span>QR CODES</span><ul id="vision-ex-qr"></ul></div>
+              <div class="vision-ex-item"><span>CONTACT INDICATORS</span><ul id="vision-ex-contacts"></ul></div>
+              <div class="vision-ex-item"><span>BRAND REFERENCES</span><ul id="vision-ex-brands"></ul></div>
+              <div class="vision-ex-item"><span>PAYMENT INDICATORS</span><ul id="vision-ex-payments"></ul></div>
+            </div>
+            <div id="vision-url-findings" class="vision-url-findings hidden">
+              <p class="eyebrow">URL SECURITY ANALYSIS</p>
+              <div id="vision-url-findings-list"></div>
+            </div>
+          </div>
+
+          <div class="vision-text-editor">
+            <div class="vision-text-editor-head">
+              <h3 class="vision-section-title">EXTRACTED TEXT</h3>
+              <span id="vision-text-state" class="vision-text-state hidden">User-edited text</span>
+            </div>
+            <textarea id="vision-text-input" spellcheck="false" placeholder="No text extracted yet"></textarea>
+            <p id="vision-text-hint" class="vision-text-hint">Edit the text if OCR misread it, then re-run the text analysis. Edited text is labeled “User-edited text” and is not treated as directly extracted from the screenshot.</p>
+            <button id="vision-rerun" class="button button-secondary" type="button">UPDATE ANALYSIS</button>
+          </div>
+
+          <h3 class="vision-section-title" id="vision-why-title">WHY WAS THIS FLAGGED?</h3>
+          <div id="vision-why" class="vision-why"></div>
+
+          <h3 class="vision-section-title">WHAT SHOULD YOU DO?</h3>
+          <ul id="vision-actions" class="vision-actions"></ul>
+
+          <div class="vision-tools">
+            <button id="vision-restart" class="button button-quiet" type="button">Analyze another screenshot</button>
+          </div>
+        </div>
+
         <div id="result" class="result hidden" role="status" aria-live="polite" aria-atomic="false">
           <div class="result-top"><p class="eyebrow" id="result-label">CONTENT REVIEW</p><span id="decision" class="decision-pill">—</span></div>
           <div class="model-card">
