@@ -25,13 +25,22 @@ reviewButton.addEventListener('click', async () => {
   try {
     const [page] = await chrome.scripting.executeScript({
       target: { tabId: activeTab.id },
-      func: () => ({
-        url: location.href,
-        title: document.title,
-        html: document.documentElement?.outerHTML?.slice(0, 120000) || document.body?.innerText || ''
-      })
+      func: () => {
+        const fullHtml = document.documentElement?.outerHTML || '';
+        return {
+          url: location.href,
+          title: document.title,
+          html: fullHtml.slice(0, 120000) || document.body?.innerText || '',
+          htmlLength: fullHtml.length
+        };
+      }
     });
-    const content = `Page URL: ${page.result.url}\nPage title: ${page.result.title}\n${page.result.html}`;
+    // Say plainly when the page was too large to review in full — the tail
+    // was not analyzed and must not silently escape review.
+    const truncatedNote = page.result.htmlLength > 120000
+      ? '\n[VIGIL: this page is very large; only its first 120,000 characters were reviewed.]'
+      : '';
+    const content = `Page URL: ${page.result.url}\nPage title: ${page.result.title}\n${page.result.html}${truncatedNote}`;
     const response = await fetch(`${apiBase}/api/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -57,7 +66,12 @@ reviewButton.addEventListener('click', async () => {
       ? `Reviewed locally with ${result.local_model.name}.`
       : 'Reviewed by VIGIL’s local rules. No page content was sent to a cloud service.';
   } catch (error) {
-    statusLabel.textContent = error.message.includes('Cannot access')
+    // Detect restricted pages by what the page is, not by locale-dependent
+    // error text: chrome://, edge://, the Web Store and other special schemes
+    // are unreachable to extensions regardless of the exact message.
+    const isRestrictedPage = activeTab?.url
+      && /^(chrome|edge|about|chrome-extension|view-source|devtools|file):/i.test(activeTab.url);
+    statusLabel.textContent = isRestrictedPage
       ? 'This browser page restricts extensions. Try the VIGIL demo page or a regular website.'
       : `Could not reach VIGIL at ${apiBase}. Start the local app and try again.`;
   } finally {

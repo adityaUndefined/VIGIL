@@ -10,7 +10,7 @@ from copy import deepcopy
 from html.parser import HTMLParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from threading import Lock
+from threading import BoundedSemaphore, Lock
 from time import monotonic
 from urllib.error import URLError
 from urllib.request import Request, urlopen
@@ -20,7 +20,7 @@ from uuid import uuid4
 
 ROOT = Path(__file__).parent
 WEB = ROOT / "web"
-SERVER_HOST = os.environ.get("VIGIL_HOST", "0.0.0.0")
+SERVER_HOST = os.environ.get("VIGIL_HOST", "127.0.0.1")
 SERVER_PORT = int(os.environ.get("VIGIL_PORT") or os.environ.get("PORT") or "8000")
 MAX_CONTENT_CHARS = 200_000
 MAX_REQUEST_BYTES = 10_000_000
@@ -28,7 +28,14 @@ MAX_VISION_JSON_BYTES = 6_000_000
 MAX_EXPLANATION_CHARS = 240
 OLLAMA_REVIEW_TIMEOUT_SECONDS = 60
 ANALYSIS_JOB_TTL_SECONDS = 300
-URL_PATTERN = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\"'`]+")
+# URLs: alternative 1 is the original form — absolute (https://…) or
+# www-prefixed, matching the full URL so userinfo (https://brand.com@evil.com/)
+# and IP-literal hosts stay visible to analysis. Alternative 2 adds bare
+# domains with a path (bit.ly/evil): scheme-less hosts must match too, or
+# shortener checks can be bypassed by omitting the scheme. It requires a path
+# so prose mentions like "visit example.com" stay unflagged, and it must come
+# after alternative 1 so absolute URLs are consumed whole.
+URL_PATTERN = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\"'`]+|\b[a-z0-9][a-z0-9-]*(?:\.[a-z0-9-]+)*\.[a-z]{2,}/[^\s<>\"'`]*")
 DOMAIN_LABEL_PATTERN = re.compile(r"(?i)(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)")
 CONFUSABLES = str.maketrans({"а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "к": "k", "м": "m", "т": "t", "в": "b"})
 
@@ -85,7 +92,12 @@ def brand_in_nonofficial_host(brand_key: str, host: str) -> bool:
     if not official:
         return False
     term = brand_key
-    if term not in host.replace("-", "") and term not in host:
+    host_compact = host.replace("-", "")
+    compact = term.replace(" ", "")
+    # Multi-word brand names ("axis bank", "india post") can never appear
+    # literally in a hostname; match their compact form too, so those brands
+    # are actually protected.
+    if compact not in host_compact and compact not in host:
         return False
     if any(host == domain or host.endswith("." + domain) for domain in official):
         return False
@@ -96,16 +108,19 @@ def find_brand_domain_mismatch(text: str) -> list[dict[str, str]]:
     """Find "brand term in a non-official domain" findings for every URL in text."""
     findings: list[dict[str, str]] = []
     seen: set[str] = set()
-    for match in URL_PATTERN.findall(text):
+    for match in URL_PATTERN.findall(strip_zero_width(text)):
         _original, host = parse_hostname(match)
         if not host or host in seen:
             continue
         seen.add(host)
-        host_compact = host.replace("-", "")
+        host_compact = host.replace("-", "").replace(" ", "")
         for brand_key in BRAND_DOMAIN_TERMS:
             if len(brand_key) < 3:
                 continue
-            term_in_host = brand_key in host_compact or brand_key in host
+            brand_compact = brand_key.replace(" ", "")
+            # Compare compact forms so multi-word brand keys ("axis bank" ->
+            # "axisbank") can appear in hostnames at all.
+            term_in_host = brand_compact in host_compact or brand_key in host
             if not term_in_host:
                 continue
             if brand_in_nonofficial_host(brand_key, host):
@@ -119,9 +134,19 @@ def find_brand_domain_mismatch(text: str) -> list[dict[str, str]]:
 
 
 ZERO_WIDTH_PATTERN = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
+
+
+def strip_zero_width(value: str) -> str:
+    """Remove invisible characters attackers splice into URLs and hostnames."""
+    return ZERO_WIDTH_PATTERN.sub("", value)
 ANALYSIS_JOBS: dict[str, dict] = {}
 ANALYSIS_JOBS_LOCK = Lock()
 MODEL_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="vigil-local-model")
+# Bound the background review queue: under load, pending model jobs must not
+# accumulate without limit. When the bound is reached, new requests keep their
+# instant rules verdict and simply skip the advisory model pass.
+MODEL_REVIEW_QUEUE_LIMIT = 10
+MODEL_REVIEW_QUEUE = BoundedSemaphore(MODEL_REVIEW_QUEUE_LIMIT)
 
 
 def resolve_llm_config() -> dict:
@@ -221,24 +246,36 @@ class AnchorCollector(HTMLParser):
 
 
 def parse_hostname(value: str) -> tuple[str | None, str | None]:
-    candidate = value.strip().rstrip(".,;:!?)]")
+    candidate = value.strip().rstrip(".,;:!?)][")
     if candidate.lower().startswith("www."):
         candidate = "https://" + candidate
     if not re.match(r"(?i)^https?://", candidate):
         candidate = "https://" + candidate
-    try:
-        parsed = urlsplit(candidate)
-        original = parsed.hostname
-        if not original:
-            return None, None
-        ascii_host = original.encode("idna").decode("ascii").lower().rstrip(".")
-        return original.lower().rstrip("."), ascii_host
-    except (UnicodeError, ValueError):
-        return None, None
+    # Second attempt strips brackets: a stray "[" makes urlsplit raise
+    # "Invalid IPv6 URL", which would otherwise skip URL analysis entirely.
+    for attempt in (candidate, candidate.replace("[", "").replace("]", "")):
+        try:
+            parsed = urlsplit(attempt)
+            original = parsed.hostname
+            if not original:
+                continue
+            try:
+                ascii_host = original.encode("idna").decode("ascii").lower().rstrip(".")
+            except UnicodeError:
+                # IDNA rejects zero-width and bidi characters that attackers
+                # use to disguise a hostname. Analyze the sanitized form
+                # instead of skipping URL analysis entirely.
+                original = ZERO_WIDTH_PATTERN.sub("", original)
+                ascii_host = original.encode("idna").decode("ascii").lower().rstrip(".")
+            return original.lower().rstrip("."), ascii_host
+        except (UnicodeError, ValueError):
+            continue
+    return None, None
 
 
 def analyze_urls(content: str) -> list[dict[str, str]]:
     findings: list[dict[str, str]] = []
+    content = strip_zero_width(content)
     anchors = AnchorCollector()
     try:
         anchors.feed(content)
@@ -304,6 +341,13 @@ def analyze_content(content: str) -> dict:
     lower = scan_text.lower()
     items: list[dict[str, str]] = []
 
+    if len(content) > MAX_CONTENT_CHARS:
+        # Truncation must never become a bypass: say plainly that the tail was
+        # not analyzed instead of silently reviewing only the head.
+        items.append(evidence(
+            "content_truncated", "content_truncated", "medium",
+            f"The message is longer than {MAX_CONTENT_CHARS:,} characters, so VIGIL analyzed only the first {MAX_CONTENT_CHARS:,}. The remainder was not reviewed.",
+        ))
     if re.search(r"\b(otp|one.time password|verification code|password|credentials?)\b", lower):
         items.append(evidence("sensitive_request", "sensitive_request", "high",
                               "The message asks for an OTP, password, verification code, or credentials."))
@@ -322,6 +366,15 @@ def analyze_content(content: str) -> dict:
         r"display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0+)?"
         r"|font-size\s*:\s*(?:0+(?:\.\d+)?|0?\.\d+)(?:px|pt|em|rem|%)?"
         r"|font-size\s*:\s*[12](?:\.\d+)?\s*(?:px|pt)|color\s*:\s*transparent"
+        # Off-screen positioning, zero-height boxes, clipping, and ARIA hiding
+        # are equally effective at keeping text invisible while it reaches an
+        # AI agent reading the DOM.
+        r"|position\s*:\s*(?:absolute|fixed)[^>]{0,80}-\d{3,}px"
+        r"|text-indent\s*:\s*-\d{3,}px"
+        r"|height\s*:\s*0(?:\.0+)?(?:px|pt|em|rem|%)?"
+        r"|clip(?:-path)?\s*:\s*(?:rect\(\s*0|inset\(\s*(?:0|100%)|circle\(\s*0)"
+        r"|aria-hidden\s*=\s*[\"']?true"
+        r"|tabindex\s*=\s*[\"']?-1"
     )
     hidden_element = re.search(
         rf"<(div|span|p|td|font|small|section)\b(?=[^>]*(?:\bhidden\b|{hidden_style}))"
@@ -589,9 +642,15 @@ GUARD_POLICY = {
 }
 
 GUARD_REDIRECT_HOSTS = {
+    # Static denylist: known shorteners/redirectors. This is deliberately
+    # defense-in-depth, not exhaustive — brand-new or unlisted shorteners are
+    # not detected here (resolving destinations would add an SSRF surface, and
+    # no Public Suffix List is bundled). Other rules (brand-domain mismatch,
+    # userinfo, insecure transport) still apply to every link.
     "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly",
     "cutt.ly", "rebrand.ly", "shorturl.at", "tiny.cc", "rb.gy", "t.ly",
     "lnkd.in", "s.id", "shrtco.de", "click.linksynergy.com", "click.trx-hum.com",
+    "bit.do", "shorte.st", "adf.ly", "soo.gd", "clck.ru", "u.to", "qr.ae",
 }
 
 
@@ -599,14 +658,19 @@ def guard_redirect_findings(content: str) -> list[dict[str, str]]:
     """Flag agent-facing links that resolve through redirector/shortener hosts."""
     findings: list[dict[str, str]] = []
     seen: set[str] = set()
-    for match in URL_PATTERN.findall(content):
-        url = match.rstrip(".,;:!?)\"'")
+    for match in URL_PATTERN.findall(strip_zero_width(content)):
+        url = match.rstrip(".,;:!?)\"'/")
         _original, host = parse_hostname(url)
         if not host or host in seen:
             continue
         seen.add(host)
         base = host.rsplit(".", 1)[0] if host.count(".") > 1 else ""
-        if host in GUARD_REDIRECT_HOSTS or base in GUARD_REDIRECT_HOSTS:
+        # Subdomains must be caught too: evil.bit.ly is a bit.ly redirector.
+        # The registrable domain (last two labels) covers evil.bit.ly -> bit.ly;
+        # multi-part public suffixes (co.uk) are approximated, not PSL-exact.
+        labels = host.split(".")
+        registrable = ".".join(labels[-2:]) if len(labels) >= 2 else host
+        if host in GUARD_REDIRECT_HOSTS or registrable in GUARD_REDIRECT_HOSTS or base in GUARD_REDIRECT_HOSTS:
             findings.append(evidence(
                 "guard_redirect_link", "guard_redirect_link", "high",
                 f"The link resolves through a redirect or shortener service: {host}.",
@@ -673,11 +737,17 @@ def pending_model_status() -> dict:
 
 
 def prune_analysis_jobs() -> None:
-    cutoff = monotonic() - ANALYSIS_JOB_TTL_SECONDS
+    now = monotonic()
+    complete_cutoff = now - ANALYSIS_JOB_TTL_SECONDS
+    # Stalled pending jobs must not linger forever: if the model review has
+    # not finished within two review timeouts, retire the job (its client is
+    # long gone; the rules verdict it already received stays authoritative).
+    pending_cutoff = now - 2 * OLLAMA_REVIEW_TIMEOUT_SECONDS
     with ANALYSIS_JOBS_LOCK:
         expired = [
             job_id for job_id, job in ANALYSIS_JOBS.items()
-            if job["status"] == "complete" and job["created_at"] < cutoff
+            if (job["status"] == "complete" and job["created_at"] < complete_cutoff)
+            or (job["status"] == "pending" and job["created_at"] < pending_cutoff)
         ]
         for job_id in expired:
             del ANALYSIS_JOBS[job_id]
@@ -685,6 +755,7 @@ def prune_analysis_jobs() -> None:
 
 def _finish_model_review(job_id: str, content: str, rules_result: dict, action: str | None) -> None:
     try:
+        MODEL_REVIEW_QUEUE.release()
         reviewed = review_with_local_model(content, deepcopy(rules_result))
         if action is None:
             final_result = reviewed
@@ -735,6 +806,21 @@ def enqueue_model_review(content: str, rules_result: dict, action: str | None = 
 
     with ANALYSIS_JOBS_LOCK:
         ANALYSIS_JOBS[job_id] = {"status": "pending", "created_at": monotonic(), "result": None}
+    try:
+        MODEL_REVIEW_QUEUE.acquire(blocking=False)
+    except ValueError:
+        # Queue full: complete the job immediately with the rules verdict.
+        immediate_analysis["local_model"] = {
+            "status": "offline",
+            "name": LLM_CONFIG["model"],
+            "provider": LLM_CONFIG["provider"],
+            "signals_added": 0,
+            "signals": [],
+            "verification": {"status": "not_run", "checked": 0, "verified": 0, "rejected": 0},
+        }
+        with ANALYSIS_JOBS_LOCK:
+            ANALYSIS_JOBS[job_id] = {"status": "complete", "created_at": monotonic(), "result": immediate_result}
+        return immediate_result
     MODEL_EXECUTOR.submit(_finish_model_review, job_id, content, deepcopy(rules_result), action)
     return immediate_result
 
@@ -785,13 +871,27 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(payload)))
         self.send_header("Cache-Control", "no-store")
+        # The local analyzer is called from the web UI (same origin) and by
+        # browser tools/extension pages; state the policy instead of leaving
+        # preflights to fail.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(payload)
+
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _body(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
         if length > MAX_REQUEST_BYTES:
-            raise ValueError("Request is too large (1 MB maximum).")
+            raise ValueError(f"Request is too large ({MAX_REQUEST_BYTES // 1_000_000} MB maximum).")
         raw = self.rfile.read(length)
         data = json.loads(raw or b"{}")
         if not isinstance(data, dict):

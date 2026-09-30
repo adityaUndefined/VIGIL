@@ -1032,6 +1032,7 @@ def analyze_vision(payload: dict) -> dict:
             score += points
 
     seen_contribution_labels: set[str] = set()
+    indicator_weights: dict[str, int] = {}
     for ind in indicators:
         if ind["type"] in seen_contribution_labels:
             continue
@@ -1051,7 +1052,15 @@ def analyze_vision(payload: dict) -> dict:
             add_contribution("Urgency", SIGNAL_WEIGHTS["urgency"], "orange")
         elif ind["type"] == "payment_indicator" and ind["severity"] == "medium":
             add_contribution("Payment indicator", SIGNAL_WEIGHTS["payment_indicator"], "orange")
+        if ind["type"] in SIGNAL_WEIGHTS and ind["type"] not in indicator_weights:
+            indicator_weights[ind["type"]] = SIGNAL_WEIGHTS[ind["type"]]
         seen_contribution_labels.add(ind["type"])
+
+    # Echo each contributing indicator's weight so the browser evidence panel
+    # never needs a hardcoded copy of SIGNAL_WEIGHTS (weight drift would show
+    # stale numbers if the server's scoring changes).
+    for ind in indicators:
+        ind["riskContribution"] = indicator_weights.get(ind["type"], 0)
 
     for group in correlated_groups:
         label = "Potential impersonation" if group["title"] == "POTENTIAL BRAND IMPERSONATION" \

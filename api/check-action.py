@@ -1,5 +1,10 @@
 from http.server import BaseHTTPRequestHandler
 import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from app import check_action
 
 MAX_REQUEST_BYTES = 1_048_576

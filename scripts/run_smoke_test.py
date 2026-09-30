@@ -363,6 +363,37 @@ def check_guard_endpoint(base_url: str) -> None:
     require(result.get("allowed") is False and result.get("machine_tag") == "VIGIL_UNREACHABLE",
             f"client must classify a malformed base URL as unreachable (got {result.get('machine_tag')!r})")
 
+    # 5c. The never-raises guarantee is absolute: even a truncated response
+    # (http.client.IncompleteRead from response.read()) must come back as a
+    # denial, never an exception escaping check_action.
+    import http.client as http_client
+    import vigil_agent_guard as guard_module
+
+    class _TruncatedResponse:
+        status = 200
+
+        def read(self, _n: int = -1) -> bytes:
+            raise http_client.IncompleteRead(b'{"decision": "ALLO', 4)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+    original_urlopen = guard_module.urlopen
+
+    def _fake_urlopen(*_args, **_kwargs):
+        return _TruncatedResponse()
+
+    guard_module.urlopen = _fake_urlopen
+    try:
+        result = guard.check_action(BENIGN_MESSAGE, "navigate", base_url=base_url)
+    finally:
+        guard_module.urlopen = original_urlopen
+    require(result.get("allowed") is False and result.get("machine_tag") == "GUARD_RESPONSE_INVALID",
+            f"client must deny on a truncated HTTP response (got {result.get('allowed')!r}/{result.get('machine_tag')!r}, or it raised)")
+
     # 6. Client allow path against the live server.
     result = guard.check_action(BENIGN_MESSAGE, "navigate", base_url=base_url)
     require(result.get("allowed") is True and result.get("decision") == "ALLOW",
@@ -379,6 +410,18 @@ def check_legacy_analyze(base_url: str) -> None:
 
 
 def check_error_handling(base_url: str) -> None:
+    # The analyzer answers CORS preflights so browser clients never break.
+    request = Request(base_url.rstrip("/") + "/api/health", method="OPTIONS")
+    try:
+        with urlopen(request, timeout=REQUEST_TIMEOUT) as response:
+            status = response.status
+            allow_origin = response.headers.get("Access-Control-Allow-Origin", "")
+    except HTTPError as error:
+        status = error.code
+        allow_origin = error.headers.get("Access-Control-Allow-Origin", "") if error.headers else ""
+    require(status == 204, f"OPTIONS preflight expected HTTP 204, got {status}")
+    require(allow_origin == "*", f"preflight is missing Access-Control-Allow-Origin (got {allow_origin!r})")
+
     cases = [
         ("empty content", "/api/analyze", "POST", {"content": "   "}),
         ("wrong content type", "/api/analyze", "POST", {"content": 12345}),

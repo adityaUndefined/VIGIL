@@ -90,7 +90,9 @@ npm i -g vercel
 vercel dev
 ```
 
-This serves `web/index.html` at `/` and routes `/api/analyze`, `/api/check-action`, `/api/guard`, `/api/model`, and `/api/analysis/<id>` to the serverless functions in `api/`, which import the same `app.py` engine.
+This serves `web/index.html` at `/` and routes `/api/analyze`, `/api/check-action`, `/api/guard`, `/api/model`, and `/api/analysis/<id>` to the serverless functions in `api/`, which import the same `app.py` engine. `/api/guard` and `/api/model` return synchronously with a rules-only verdict (no local-model polling on Vercel), and background analysis jobs live only in the running analyzer's memory — `/api/analysis/<id>` polling works against `python3 app.py`, not a fresh serverless instance.
+
+> Security note: the local server binds to `127.0.0.1` by default. Setting `VIGIL_HOST=0.0.0.0` exposes the unauthenticated analyze/guard APIs to your network — do this only inside an isolated environment (the managed preview does exactly this).
 
 ---
 
