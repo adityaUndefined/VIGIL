@@ -793,6 +793,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
+        # App shell and JS/CSS change with every deploy; never cache them so
+        # browsers do not serve stale frontend code (vendor assets, which are
+        # immutable, keep their own long-lived caching above).
+        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(payload)
 

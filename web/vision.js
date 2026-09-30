@@ -166,8 +166,7 @@
   // ------------------------------------------------------------------
   let visionActive = false;
 
-  modeButton.addEventListener('click', () => {
-    if (state.busy) return;
+  function enterVision() {
     visionActive = true;
     modeButton.classList.add('active');
     modeButton.setAttribute('aria-pressed', 'true');
@@ -181,7 +180,19 @@
       if (panel !== visionPanel) panel.hidden = true;
     });
     setVisionVisibility(true);
+  }
+
+  modeButton.addEventListener('click', () => {
+    if (state.busy) return;
+    enterVision();
   });
+
+  // app.js calls this when the topbar Scanner link is used: it leads directly
+  // into VIGIL Vision. Idempotent, so repeated clicks stay on Vision.
+  window.visionModeEnter = () => {
+    if (visionActive) return;
+    enterVision();
+  };
 
   function leaveVision(targetMode) {
     if (!visionActive) return;
@@ -830,6 +841,7 @@
     holder.append(canvas);
     overlayCanvas = canvas;
     activeOverlayImage = meta.imageSource;
+    viewIsAnalysis = true; // fresh result always starts on the AFTER view
     drawOverlay(canvas, meta.imageSource, overlayIndicators, true);
     setView('analysis');
     const hint = $('#vision-overlay-hint');
@@ -977,8 +989,15 @@
     originalButton.setAttribute('aria-pressed', String(!viewIsAnalysis));
     analysisButton.classList.toggle('active', viewIsAnalysis);
     analysisButton.setAttribute('aria-pressed', String(viewIsAnalysis));
-    if (overlayCanvas && activeOverlayImage) {
-      drawOverlay(overlayCanvas, activeOverlayImage, (currentResult && currentResult.overlayIndicators) || [], viewIsAnalysis);
+    if (!overlayCanvas || !activeOverlayImage) return;
+    const overlays = (currentResult && currentResult.overlayIndicators) || [];
+    drawOverlay(overlayCanvas, activeOverlayImage, overlays, viewIsAnalysis);
+    // When nothing is located, BEFORE and AFTER are intentionally identical —
+    // say so instead of leaving the user wondering whether the button broke.
+    const hint = $('#vision-overlay-hint');
+    if (!overlays.length && hint) {
+      hint.textContent = 'No located regions to highlight, so BEFORE and AFTER look the same. Indicator details are in the list above.';
+      show(hint);
     }
   }
   $('#vision-view-original').addEventListener('click', () => setView('original'));

@@ -126,17 +126,23 @@ def check_static_assets(base_url: str) -> None:
     _, _, html = http(base_url, "/")
     text = html.decode("utf-8", "replace")
     require("VIGIL" in text and "Private Security Review" in text, "/ is missing the VIGIL page markup")
-    # Scanner: topbar anchor target, screenshot OCR mode, and engine script.
+    # Scanner: topbar anchor target leading into VIGIL Vision, plus the
+    # Vision dropzone and its local OCR engine script.
     require('id="scanner"' in text, "/ is missing the #scanner section target")
     require('href="#scanner"' in text, "topbar Scanner link is missing")
-    require('data-mode="scan"' in text and 'id="scan-panel"' in text and 'id="scan-dropzone"' in text,
-            "/ is missing the screenshot (OCR) scanner UI")
-    require('id="content-scan"' in text, "scanner mode is missing its extracted-text input")
+    require('data-vision-link' in text, "Scanner link does not carry the VIGIL Vision entry hook")
+    require('id="vision-panel"' in text and 'id="vision-dropzone"' in text,
+            "/ is missing the VIGIL Vision upload UI")
+    require('data-mode="scan"' not in text and 'id="scan-panel"' not in text,
+            "legacy screenshot (OCR) scanner UI is still present; it was removed in favor of VIGIL Vision")
     require("tesseract" in text.lower(), "the on-device OCR engine script is not referenced")
     _, _, script = http(base_url, "/app.js")
     app_js = script.decode("utf-8", "replace")
-    require("loadScanEngine" in app_js and "recognizeImage" in app_js and "goToScanner" in app_js,
-            "/app.js is missing the scanner and anchor-navigation wiring")
+    require("goToScanner" in app_js and "visionModeEnter" in app_js,
+            "/app.js scanner navigation must call window.visionModeEnter (defined in vision.js)")
+    _, _, vision_js = http(base_url, "/vision.js")
+    require("visionModeEnter" in vision_js.decode("utf-8", "replace"),
+            "/vision.js is missing the visionModeEnter entry point")
 
 
 def check_get_apis(base_url: str) -> None:
