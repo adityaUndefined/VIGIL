@@ -57,3 +57,7 @@ recordings/
 
 # Generated design images
 design/stitch/*.png
+
+# OCR engine artifacts (language data caches at repo root)
+*.traineddata
+eng.traineddata
