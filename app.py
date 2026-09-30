@@ -20,16 +20,104 @@ from uuid import uuid4
 
 ROOT = Path(__file__).parent
 WEB = ROOT / "web"
-SERVER_HOST = os.environ.get("VIGIL_HOST", "127.0.0.1")
-SERVER_PORT = int(os.environ.get("VIGIL_PORT", "8000"))
+SERVER_HOST = os.environ.get("VIGIL_HOST", "0.0.0.0")
+SERVER_PORT = int(os.environ.get("VIGIL_PORT") or os.environ.get("PORT") or "8000")
 MAX_CONTENT_CHARS = 200_000
-MAX_REQUEST_BYTES = 1_000_000
+MAX_REQUEST_BYTES = 10_000_000
+MAX_VISION_JSON_BYTES = 6_000_000
 MAX_EXPLANATION_CHARS = 240
 OLLAMA_REVIEW_TIMEOUT_SECONDS = 60
 ANALYSIS_JOB_TTL_SECONDS = 300
 URL_PATTERN = re.compile(r"(?i)\b(?:https?://|www\.)[^\s<>\"'`]+")
 DOMAIN_LABEL_PATTERN = re.compile(r"(?i)(?:https?://)?(?:www\.)?([a-z0-9-]+(?:\.[a-z0-9-]+)+)")
 CONFUSABLES = str.maketrans({"а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j", "к": "k", "м": "m", "т": "t", "в": "b"})
+
+# ---------------------------------------------------------------------------
+# Brand-aware hostname checks
+#
+# A screenshot or message may reference a well-known brand while linking to a
+# domain that merely embeds the brand name (sbi-kyc-alert.example). Detection
+# is deliberately conservative: it only fires when the brand term appears in a
+# NON-official hostname's subdomain or registrable name, never for exact
+# official domains, and it is a medium finding — corroboration still required.
+# ---------------------------------------------------------------------------
+BRAND_DOMAIN_TERMS: dict[str, tuple[str, ...]] = {
+    "sbi": ("sbi.co.in", "onlinesbi.sbi", "statebankofindia.com", "sbicard.com"),
+    "hdfc": ("hdfcbank.com",),
+    "icici": ("icicibank.com",),
+    "axis bank": ("axisbank.com", "axisbank.co.in"),
+    "paytm": ("paytm.com", "paytmbank.com"),
+    "phonepe": ("phonepe.com",),
+    "google pay": ("google.com", "googlepay.com"),
+    "gpay": ("google.com", "googlepay.com"),
+    "amazon": ("amazon.com", "amazon.in", "amazon.co.uk", "amazon.de", "amazonpay.in"),
+    "flipkart": ("flipkart.com",),
+    "paypal": ("paypal.com",),
+    "microsoft": ("microsoft.com", "live.com", "office.com", "outlook.com", "login.microsoftonline.com"),
+    "google": ("official:google",),  # handled specially — see below
+    "apple": ("apple.com", "icloud.com"),
+    "netflix": ("netflix.com",),
+    "whatsapp": ("whatsapp.com", "wa.me"),
+    "facebook": ("facebook.com", "fb.com"),
+    "instagram": ("instagram.com",),
+    "dhl": ("dhl.com", "dhl.de"),
+    "fedex": ("fedex.com",),
+    "bluedart": ("bluedart.com",),
+    "india post": ("indiapost.gov.in",),
+}
+# Brand terms too generic to assert a domain match on their own (a URL
+# containing "google" may genuinely be a Google property or not — only the
+# exact official-domain check applies).
+GENERIC_BRAND_TERMS = {"google", "pay", "bank"}
+
+def brand_in_nonofficial_host(brand_key: str, host: str) -> bool:
+    """True when `host` embeds the brand term but is NOT an official domain.
+
+    Brands without a confident official-domain list (the "official:" marker,
+    e.g. the generic term "google") never assert a mismatch — conservative by
+    design to avoid false positives.
+    """
+    if not host:
+        return False
+    host = host.lower().lstrip(".").rstrip(".")
+    official_all = BRAND_DOMAIN_TERMS.get(brand_key, ())
+    official = tuple(d for d in official_all if not d.startswith("official:"))
+    if not official:
+        return False
+    term = brand_key
+    if term not in host.replace("-", "") and term not in host:
+        return False
+    if any(host == domain or host.endswith("." + domain) for domain in official):
+        return False
+    return True
+
+
+def find_brand_domain_mismatch(text: str) -> list[dict[str, str]]:
+    """Find "brand term in a non-official domain" findings for every URL in text."""
+    findings: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for match in URL_PATTERN.findall(text):
+        _original, host = parse_hostname(match)
+        if not host or host in seen:
+            continue
+        seen.add(host)
+        host_compact = host.replace("-", "")
+        for brand_key in BRAND_DOMAIN_TERMS:
+            if len(brand_key) < 3:
+                continue
+            term_in_host = brand_key in host_compact or brand_key in host
+            if not term_in_host:
+                continue
+            if brand_in_nonofficial_host(brand_key, host):
+                findings.append(evidence(
+                    f"brand_in_domain_{brand_key.replace(' ', '_')}",
+                    "brand_in_domain", "medium",
+                    f"The domain contains the brand term “{brand_key}” but is not an official {brand_key} domain.",
+                ))
+                break
+    return findings
+
+
 ZERO_WIDTH_PATTERN = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
 ANALYSIS_JOBS: dict[str, dict] = {}
 ANALYSIS_JOBS_LOCK = Lock()
@@ -205,6 +293,8 @@ def analyze_urls(content: str) -> list[dict[str, str]]:
             findings.append(evidence("link_destination_mismatch", "link_destination_mismatch", "high",
                                      f"The link displays {shown} but actually opens {destination}."))
             break
+
+    findings.extend(find_brand_domain_mismatch(content))
     return findings
 
 
@@ -728,6 +818,38 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/app.js":
             target = WEB / "app.js"
             content_type = "text/javascript; charset=utf-8"
+        elif path == "/vision.js":
+            target = WEB / "vision.js"
+            content_type = "text/javascript; charset=utf-8"
+        elif path == "/vision.css":
+            target = WEB / "vision.css"
+            content_type = "text/css; charset=utf-8"
+        elif path.startswith("/vendor/"):
+            # Vendored OCR / QR assets. Path is normalized and confined to the
+            # vendor directory to prevent traversal; only real files are served.
+            relative = os.path.normpath(path[len("/vendor/"):]).replace("\\", "/")
+            if relative.startswith("..") or os.path.isabs(relative):
+                self._json(404, {"error": "Not found"})
+                return
+            target = WEB / "vendor" / relative
+            if not target.is_file():
+                self._json(404, {"error": "Not found"})
+                return
+            content_type = {
+                ".js": "text/javascript; charset=utf-8",
+                ".css": "text/css; charset=utf-8",
+                ".gz": "application/gzip",
+                ".wasm": "application/wasm",
+                ".map": "application/json",
+            }.get(target.suffix.lower(), "application/octet-stream")
+            payload = target.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+            self.send_header("Cache-Control", "public, max-age=86400")
+            self.end_headers()
+            self.wfile.write(payload)
+            return
         elif path == "/api/health":
             self._json(200, {"ok": True, "app": "VIGIL"})
             return
@@ -756,6 +878,15 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_POST(self) -> None:
+        if self.path == "/api/vision/analyze":
+            try:
+                self._handle_vision()
+            except (ValueError, json.JSONDecodeError) as exc:
+                self._json(400, {"error": str(exc)})
+            except Exception:
+                # Never leak a stack trace; analysis failures degrade gracefully.
+                self._json(500, {"error": "VIGIL Vision could not complete this analysis. Please try another screenshot."})
+            return
         try:
             data = self._body()
             if self.path == "/analyze":
@@ -813,6 +944,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(404, {"error": "Not found"})
         except (ValueError, json.JSONDecodeError) as exc:
             self._json(400, {"error": str(exc)})
+
+    def _read_vision_body(self) -> dict:
+        """Read the Vision JSON envelope. Larger than text requests because it
+        includes region geometry, but still strictly bounded."""
+        length = int(self.headers.get("Content-Length", "0"))
+        if length > MAX_VISION_JSON_BYTES:
+            raise ValueError("Vision payload is too large (6 MB maximum).")
+        raw = self.rfile.read(length)
+        data = json.loads(raw or b"{}")
+        if not isinstance(data, dict):
+            raise ValueError("Expected a JSON object.")
+        return data
+
+    def _handle_vision(self) -> None:
+        from vision_engine import analyze_vision  # imported here to keep startup lean
+        data = self._read_vision_body()
+        result = analyze_vision(data)
+        self._json(200, result)
 
     def log_message(self, fmt: str, *args) -> None:
         print(f"{self.address_string()} - {fmt % args}")

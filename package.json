@@ -5,11 +5,13 @@
   "scripts": {
     "design:stitch": "node scripts/generate-vigil-design.mjs",
     "server": "python3 app.py",
+    "start": "python3 app.py",
     "fixtures": "python3 scripts/run_offline_fixtures.py",
     "test:llm": "python3 scripts/test_llm_providers.py",
     "demo:llm": "python3 scripts/demo_local_llm.py",
     "smoke": "python3 scripts/run_smoke_test.py",
-    "guard": "python3 agent/vigil_agent_guard.py demo"
+    "guard": "python3 agent/vigil_agent_guard.py demo",
+    "test": "python3 scripts/run_offline_fixtures.py && python3 scripts/run_vision_tests.py"
   },
   "devDependencies": {
     "@google/stitch-sdk": "^0.3.5"
