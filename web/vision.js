@@ -4,7 +4,11 @@
  *   upload → validation → preprocessing → OCR (Tesseract.js, local WASM)
  *   → QR decode (jsQR, local) → visual structure detection (measured)
  *   → POST /api/vision/analyze → server correlation + VIGIL risk engine
- *   → evidence overlay + editable extracted text + report.
+ *   → editable extracted text + report with per-indicator details.
+ *
+ * Vision is not "OCR and paste into the Message tab": every text finding keeps
+ * its location on the original screenshot, and the report lists each detected
+ * indicator with its evidence and risk contribution (Details button).
  *
  * The browser never decides risk. All detection, correlation, and scoring are
  * server-side (vision_engine.py) so Vision reuses VIGIL's existing rules.
@@ -673,95 +677,44 @@
   }
 
   // ------------------------------------------------------------------
-  // Overlay rendering
-  // ------------------------------------------------------------------
-  const OVERLAY_COLORS = {
-    red: { stroke: '#e04a40', fill: 'rgba(224, 74, 64, 0.10)', chip: '#b3352d' },
-    orange: { stroke: '#d98f16', fill: 'rgba(217, 143, 22, 0.10)', chip: '#a86f08' },
-    blue: { stroke: '#4a7fb5', fill: 'rgba(74, 127, 181, 0.10)', chip: '#3a6691' }
-  };
-
-  function drawOverlay(canvas, imageSource, indicators, active) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(imageSource, 0, 0, canvas.width, canvas.height);
-    if (!active) return;
-    const fontSize = Math.max(12, Math.round(Math.max(canvas.width, canvas.height) / 62));
-    const padding = Math.max(2, Math.round(fontSize / 5));
-    ctx.font = `600 ${fontSize}px "JetBrains Mono", ui-monospace, monospace`;
-    ctx.textBaseline = 'top';
-    for (const indicator of indicators) {
-      const bbox = indicator.bbox;
-      if (!bbox) continue;
-      const colors = OVERLAY_COLORS[indicator.color] || OVERLAY_COLORS.blue;
-      ctx.lineWidth = Math.max(2, Math.round(fontSize / 5));
-      ctx.strokeStyle = colors.stroke;
-      ctx.fillStyle = colors.fill;
-      ctx.fillRect(bbox.x, bbox.y, bbox.width, bbox.height);
-      ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height);
-      const label = indicator.shortLabel || indicator.label || '';
-      if (label) {
-        const textWidth = ctx.measureText(label.toUpperCase()).width;
-        const chipWidth = textWidth + padding * 2;
-        const chipHeight = fontSize + padding * 2;
-        let chipY = bbox.y - chipHeight - 2;
-        if (chipY < 0) chipY = bbox.y + 2;
-        ctx.fillStyle = colors.chip;
-        ctx.beginPath();
-        const radius = Math.min(4, chipHeight / 2);
-        ctx.roundRect ? ctx.roundRect(bbox.x, chipY, chipWidth, chipHeight, radius) : ctx.rect(bbox.x, chipY, chipWidth, chipHeight);
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.fillText(label.toUpperCase(), bbox.x + padding, chipY + padding);
-      }
-    }
-  }
-
-  function hitTest(indicators, x, y) {
-    let best = null;
-    let bestArea = Infinity;
-    for (const indicator of indicators) {
-      const bbox = indicator.bbox;
-      if (!bbox) continue;
-      if (x >= bbox.x && x <= bbox.x + bbox.width && y >= bbox.y && y <= bbox.y + bbox.height) {
-        const area = bbox.width * bbox.height;
-        if (area < bestArea) {
-          best = indicator;
-          bestArea = area;
-        }
-      }
-    }
-    return best;
-  }
-
-  // ------------------------------------------------------------------
-  // Evidence details panel
+  // Indicator details (rendered inline under the indicator)
   // ------------------------------------------------------------------
   let currentResult = null;
 
-  function showEvidence(indicator) {
-    $('#vision-ev-label').textContent = indicator.label || '—';
-    $('#vision-ev-detected').textContent = indicator.detected || '—';
-    $('#vision-ev-source').textContent = indicator.source || '—';
-    $('#vision-ev-confidence').textContent = indicator.confidence != null ? `${indicator.confidence}%` : '—';
-    $('#vision-ev-reason').textContent = indicator.reason || '—';
-    // The server echoes each indicator's actual weight (riskContribution);
-    // no client-side copy of the weight table, so it can never go stale.
-    const weight = indicator.riskContribution;
-    const riskRow = $('#vision-ev-risk-row');
-    if (weight && indicator.severity !== 'info' && indicator.severity !== 'low') {
-      $('#vision-ev-risk').textContent = `+${weight}`;
-      show(riskRow);
-    } else {
-      $('#vision-ev-risk').textContent = '—';
-      show(riskRow);
+  function renderIndicatorDetails(li, indicator) {
+    const existing = li.querySelector('.ind-details');
+    const open = li.querySelector('.ind-open');
+    if (existing) existing.remove();
+    if (open && open.dataset.indicatorLabel === String(indicator.label || '')) {
+      if (open) open.dataset.indicatorLabel = '';
+      return; // second click hides the details
     }
-    const details = $('#vision-evidence-details');
-    show(details);
-    details.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (open) open.dataset.indicatorLabel = String(indicator.label || '');
+    const details = document.createElement('div');
+    details.className = 'ind-details';
+    const rows = [
+      ['DETECTED', indicator.detected],
+      ['SOURCE', indicator.source],
+      ['OCR CONFIDENCE', indicator.confidence != null ? `${indicator.confidence}%` : null],
+      ['RISK CONTRIBUTION', indicator.riskContribution && indicator.severity !== 'info' && indicator.severity !== 'low'
+        ? `+${indicator.riskContribution}`
+        : '—'],
+      // The server echoes each indicator's actual weight (riskContribution);
+      // no client-side copy of the weight table, so it can never go stale.
+      ['REASON', indicator.reason, 'ind-details-reason']
+    ];
+    rows.forEach(([name, value, extraClass]) => {
+      const row = document.createElement('p');
+      row.className = extraClass ? `ind-details-row ${extraClass}` : 'ind-details-row';
+      const label = document.createElement('span');
+      label.textContent = name;
+      const valueEl = document.createElement('strong');
+      valueEl.textContent = value || '—';
+      row.append(label, valueEl);
+      details.append(row);
+    });
+    li.append(details);
   }
-
-  $('#vision-evidence-close').addEventListener('click', () => hide($('#vision-evidence-details')));
 
   // ------------------------------------------------------------------
   // Result rendering
@@ -796,6 +749,17 @@
       fill.style.width = `${risk.score}%`;
       fill.className = risk.color;
     });
+
+    // Uploaded screenshot (full-size view)
+    const shotHolder = $('#vision-screenshot-holder');
+    shotHolder.replaceChildren();
+    const shotCanvas = document.createElement('canvas');
+    shotCanvas.width = meta.imageWidth;
+    shotCanvas.height = meta.imageHeight;
+    shotCanvas.setAttribute('role', 'img');
+    shotCanvas.setAttribute('aria-label', 'Uploaded screenshot');
+    shotCanvas.getContext('2d').drawImage(meta.imageSource, 0, 0);
+    shotHolder.append(shotCanvas);
     $('#vision-ocr-confidence').textContent = result.ocr.regionCount
       ? `${Math.round(result.ocr.meanConfidence)}%`
       : 'none';
@@ -811,7 +775,6 @@
     // Indicators
     const list = $('#vision-indicator-list');
     list.replaceChildren();
-    const overlayIndicators = result.overlayIndicators || [];
     (result.indicators || []).forEach((indicator) => {
       const li = document.createElement('li');
       li.className = `sev-${indicator.severity}`;
@@ -827,14 +790,8 @@
       const open = document.createElement('button');
       open.type = 'button';
       open.className = 'ind-open';
-      open.textContent = indicator.bbox ? 'Details · show on screenshot' : 'Details';
-      open.addEventListener('click', () => {
-        if (indicator.bbox) {
-          setView('analysis');
-          if (activeOverlayImage) drawOverlay(overlayCanvas, activeOverlayImage, overlayIndicators, true);
-        }
-        showEvidence(indicator);
-      });
+      open.textContent = 'Details';
+      open.addEventListener('click', () => renderIndicatorDetails(li, indicator));
       li.append(label, detected, chip, open);
       list.append(li);
     });
@@ -851,43 +808,6 @@
       summary.textContent = group.summary;
       li.append(title, summary);
       list.append(li);
-    });
-
-    // Overlay canvas
-    const holder = $('#vision-canvas-holder');
-    holder.replaceChildren();
-    const canvas = document.createElement('canvas');
-    canvas.width = meta.imageWidth;
-    canvas.height = meta.imageHeight;
-    holder.append(canvas);
-    overlayCanvas = canvas;
-    activeOverlayImage = meta.imageSource;
-    viewIsAnalysis = true; // fresh result always starts on the AFTER view
-    drawOverlay(canvas, meta.imageSource, overlayIndicators, true);
-    setView('analysis');
-    const hint = $('#vision-overlay-hint');
-    if (overlayIndicators.length) {
-      hint.textContent = `Click a highlighted region on the screenshot to inspect the evidence (${overlayIndicators.length} located).`;
-      show(hint);
-    } else if ((result.indicators || []).length) {
-      hint.textContent = 'No located regions for the current indicators — see the list above for details.';
-      show(hint);
-    } else {
-      hide(hint);
-    }
-
-    canvas.addEventListener('click', (event) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
-      const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
-      const indicator = hitTest(overlayIndicators, x, y);
-      if (indicator) showEvidence(indicator);
-    });
-    canvas.addEventListener('mousemove', (event) => {
-      const rect = canvas.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
-      const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
-      canvas.style.cursor = hitTest(overlayIndicators, x, y) ? 'pointer' : 'default';
     });
 
     // Extracted information lists
@@ -934,15 +854,12 @@
       hide(findingsBox);
     }
 
-    // Extracted text editor. When the analysis ran on user-edited text, the
-    // server echoes that text back — keep it in the editor and keep the chip.
+    // Extracted text editor.
     const textArea = $('#vision-text-input');
     state.originalExtractedText = result.extracted.text || '';
     textArea.value = state.originalExtractedText;
-    state.serverSaysEdited = !!result.textWasEdited;
     updateTextState();
     textArea.disabled = false;
-    $('#vision-rerun').disabled = false;
 
     // WHY breakdown — only real contributions
     const why = $('#vision-why');
@@ -997,93 +914,16 @@
     });
   }
 
-  // View toggle: BEFORE (original) / AFTER (VIGIL analysis)
-  let overlayCanvas = null;
-  let activeOverlayImage = null;
-  let viewIsAnalysis = true;
-
-  function setView(analysis) {
-    viewIsAnalysis = analysis === 'analysis';
-    const originalButton = $('#vision-view-original');
-    const analysisButton = $('#vision-view-analysis');
-    originalButton.classList.toggle('active', !viewIsAnalysis);
-    originalButton.setAttribute('aria-pressed', String(!viewIsAnalysis));
-    analysisButton.classList.toggle('active', viewIsAnalysis);
-    analysisButton.setAttribute('aria-pressed', String(viewIsAnalysis));
-    if (!overlayCanvas || !activeOverlayImage) return;
-    const overlays = (currentResult && currentResult.overlayIndicators) || [];
-    drawOverlay(overlayCanvas, activeOverlayImage, overlays, viewIsAnalysis);
-    // When nothing is located, BEFORE and AFTER are intentionally identical —
-    // say so instead of leaving the user wondering whether the button broke.
-    const hint = $('#vision-overlay-hint');
-    if (!overlays.length && hint) {
-      hint.textContent = 'No located regions to highlight, so BEFORE and AFTER look the same. Indicator details are in the list above.';
-      show(hint);
-    }
-  }
-  $('#vision-view-original').addEventListener('click', () => setView('original'));
-  $('#vision-view-analysis').addEventListener('click', () => setView('analysis'));
-
   // ------------------------------------------------------------------
   // Extracted text editing + re-run
   // ------------------------------------------------------------------
   function updateTextState() {
     const textArea = $('#vision-text-input');
     const chip = $('#vision-text-state');
-    // The server's textWasEdited flag is authoritative: after UPDATE ANALYSIS
-    // the echoed text equals the editor value, but it is still user-edited
-    // (not directly extracted from the screenshot) and must stay labeled.
-    const edited = state.serverSaysEdited || textArea.value !== state.originalExtractedText;
+    const edited = textArea.value !== state.originalExtractedText;
     chip.classList.toggle('hidden', !edited);
   }
   $('#vision-text-input').addEventListener('input', updateTextState);
-
-  $('#vision-rerun').addEventListener('click', async () => {
-    if (state.busy || !currentResult) return;
-    const editedText = $('#vision-text-input').value;
-    const wasEdited = editedText !== state.originalExtractedText;
-    const generation = ++state.generation;
-    state.busy = true;
-    $('#vision-rerun').disabled = true;
-    showStatus();
-    resetSteps();
-    setStep('receive', 'done', 'previous screenshot');
-    setStep('preprocess', 'skipped');
-    setStep('ocr', 'skipped', 'using edited text');
-    setStep('visual', 'skipped');
-    setStep('urls', 'running');
-    setStep('correlate', 'running');
-    setStep('report', 'running');
-    try {
-      const payload = state.lastPayload ? { ...state.lastPayload } : {};
-      payload.editedText = wasEdited ? editedText : '';
-      const response = await fetch('/api/vision/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'The analysis could not be updated.');
-      if (generation !== state.generation) return;
-      setStep('urls', 'done');
-      setStep('correlate', 'done');
-      setStep('report', 'done');
-      renderResult(data, {
-        isDemo: state.isDemo,
-        demoName: state.demoName,
-        imageWidth: state.imageWidth,
-        imageHeight: state.imageHeight,
-        imageSource: state.imageSource
-      });
-    } catch (error) {
-      if (generation === state.generation) {
-        visionError(error && error.message ? error.message : 'The analysis could not be updated. Please try again.');
-      }
-    } finally {
-      state.busy = false;
-      $('#vision-rerun').disabled = false;
-    }
-  });
 
   // ------------------------------------------------------------------
   // Restart
@@ -1155,7 +995,6 @@
         qr: qrCodes,
         visual: { rectangles: visual.rectangles, fields: visual.fields }
       };
-      state.lastPayload = payload;
       const response = await fetch('/api/vision/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1221,7 +1060,7 @@
       sizeBytes: file.size,
       type: file.type || ''
     });
-    // Keep the bitmap alive for overlay drawing; close it when replaced.
+    // Keep the decoded image alive for the result view; close it when replaced.
     if (state.previousDecode && state.previousDecode.close) state.previousDecode.close();
     state.previousDecode = decoded;
   }

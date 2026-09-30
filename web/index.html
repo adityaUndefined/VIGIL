@@ -185,27 +185,7 @@
           <h3 class="vision-section-title">DETECTED INDICATORS</h3>
           <ul id="vision-indicator-list" class="vision-indicator-list"></ul>
 
-          <h3 class="vision-section-title">VISUAL EVIDENCE</h3>
-          <div class="vision-overlay-wrap">
-            <div class="vision-toggle-row" role="group" aria-label="Screenshot view">
-              <button id="vision-view-original" class="vision-toggle active" type="button" aria-pressed="true">BEFORE</button>
-              <button id="vision-view-analysis" class="vision-toggle" type="button" aria-pressed="false">AFTER · VIGIL ANALYSIS</button>
-            </div>
-            <div id="vision-canvas-holder" class="vision-canvas-holder"></div>
-            <p id="vision-overlay-hint" class="vision-overlay-hint hidden">Click a highlighted region on the AFTER view to inspect the evidence.</p>
-            <div id="vision-evidence-details" class="vision-evidence-details hidden" aria-live="polite">
-              <div class="vision-evidence-head">
-                <p class="eyebrow">EVIDENCE DETAILS</p>
-                <button id="vision-evidence-close" class="vision-evidence-close" type="button" aria-label="Close evidence details">×</button>
-              </div>
-              <p class="vision-ev-row"><span>INDICATOR</span><strong id="vision-ev-label">—</strong></p>
-              <p class="vision-ev-row"><span>DETECTED</span><strong id="vision-ev-detected">—</strong></p>
-              <p class="vision-ev-row"><span>SOURCE</span><strong id="vision-ev-source">—</strong></p>
-              <p class="vision-ev-row"><span>OCR CONFIDENCE</span><strong id="vision-ev-confidence">—</strong></p>
-              <p class="vision-ev-row vision-ev-reason"><span>REASON</span><strong id="vision-ev-reason">—</strong></p>
-              <p class="vision-ev-row" id="vision-ev-risk-row"><span>RISK CONTRIBUTION</span><strong id="vision-ev-risk">—</strong></p>
-            </div>
-          </div>
+          <div id="vision-screenshot-holder" class="vision-screenshot-holder"></div>
 
           <h3 class="vision-section-title">EXTRACTED INFORMATION</h3>
           <div class="vision-extracted">
@@ -228,8 +208,7 @@
               <span id="vision-text-state" class="vision-text-state hidden">User-edited text</span>
             </div>
             <textarea id="vision-text-input" spellcheck="false" placeholder="No text extracted yet"></textarea>
-            <p id="vision-text-hint" class="vision-text-hint">Edit the text if OCR misread it, then re-run the text analysis. Edited text is labeled “User-edited text” and is not treated as directly extracted from the screenshot.</p>
-            <button id="vision-rerun" class="button button-secondary" type="button">UPDATE ANALYSIS</button>
+            <p id="vision-text-hint" class="vision-text-hint">Edit the text if OCR misread it. Edited text is labeled “User-edited text” and is not treated as directly extracted from the screenshot.</p>
           </div>
 
           <h3 class="vision-section-title" id="vision-why-title">WHY WAS THIS FLAGGED?</h3>
