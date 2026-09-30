@@ -745,7 +745,9 @@
     $('#vision-ev-source').textContent = indicator.source || '—';
     $('#vision-ev-confidence').textContent = indicator.confidence != null ? `${indicator.confidence}%` : '—';
     $('#vision-ev-reason').textContent = indicator.reason || '—';
-    const weight = { suspicious_url: 25, qr_suspicious_destination: 22, credential_request: 20, auth_interface: 15, url_caution: 15, urgency: 15, potential_impersonation: 15, qr_detected: 8, payment_indicator: 10 }[indicator.type];
+    // The server echoes each indicator's actual weight (riskContribution);
+    // no client-side copy of the weight table, so it can never go stale.
+    const weight = indicator.riskContribution;
     const riskRow = $('#vision-ev-risk-row');
     if (weight && indicator.severity !== 'info' && indicator.severity !== 'low') {
       $('#vision-ev-risk').textContent = `+${weight}`;

@@ -81,9 +81,18 @@ def _post_guard(base_url: str, content: str, action: str, agent_id: str, timeout
         if response.status != 200:
             raise OSError(f"unexpected HTTP status {response.status}")
         body = json.loads(response.read().decode("utf-8"))
-    if not isinstance(body, dict) or not isinstance(body.get("decision"), str) \
-            or not isinstance(body.get("allowed"), bool):
+    if not isinstance(body, dict):
         raise ValueError("guard response is not a valid decision object")
+    decision = body.get("decision")
+    allowed = body.get("allowed")
+    if not isinstance(decision, str) or not isinstance(allowed, bool):
+        raise ValueError("guard response is not a valid decision object")
+    if decision.upper() not in {"ALLOW", "WARN", "DENY"}:
+        raise ValueError("guard response has an unknown decision")
+    # A server claiming DENY while flagging allowed=true is inconsistent;
+    # trusting it would be a fail-open hole, so reject the whole response.
+    if (decision.upper() == "ALLOW") is not allowed:
+        raise ValueError("guard response decision and allowed flag disagree")
     return body
 
 
@@ -122,6 +131,10 @@ def check_action(content: str, action: str, base_url: str = "", agent_id: str = 
         return deny(f"VIGIL is unreachable at {url}.", "timeout", normalized, str(error))
     except (ValueError, json.JSONDecodeError) as error:
         return deny("VIGIL returned a response the client could not validate.", "invalid_response", normalized, str(error))
+    except Exception as error:  # http.client.IncompleteRead and any other transport quirk
+        # The never-raises guarantee is absolute: an agent must never see an
+        # exception from this function and mistake it for permission to act.
+        return deny("VIGIL returned an incomplete or unreadable response.", "invalid_response", normalized, str(error))
 
     result.setdefault("machine_tag", MACHINE_TAGS["guard_allow"] if result["allowed"] else MACHINE_TAGS["guard_denied"])
     result.setdefault("action", normalized)
