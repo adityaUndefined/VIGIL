@@ -126,13 +126,24 @@ def check_static_assets(base_url: str) -> None:
     _, _, html = http(base_url, "/")
     text = html.decode("utf-8", "replace")
     require("VIGIL" in text and "Private Security Review" in text, "/ is missing the VIGIL page markup")
-    # Workbench: topbar anchor target and the VIGIL Vision screenshot mode.
+    # Workbench anchor target, topbar nav, and the VIGIL Vision screenshot mode.
     require('id="scanner"' in text, "/ is missing the #scanner section target")
-    require('href="#scanner"' in text, "topbar Scanner link is missing")
+    require('data-vision-link' in text and 'href="#vision"' in text,
+            "topbar VIGIL Vision link is missing")
+    require('href="#agent-review"' in text and 'id="agent-review"' in text,
+            "topbar Agent guard link or the #agent-review box is missing")
+    require('href="#scanner"' not in text,
+            "topbar should not link the Scanner anchor directly")
+    require('href="#how-it-works"' not in text,
+            "topbar should not link the How-it-works section")
     require('data-mode="vision"' in text and 'id="vision-panel"' in text and 'id="vision-dropzone"' in text,
             "/ is missing the VIGIL Vision screenshot UI")
     require('data-mode="scan"' not in text and 'id="scan-panel"' not in text,
             "the legacy screenshot (OCR) scan mode should be removed in favor of VIGIL Vision")
+    require('id="faq"' in text and 'class="faq-item"' in text, "/ is missing the FAQ section")
+    require(text.count('class="faq-item"') >= 6, "FAQ section should cover at least six questions")
+    require("warning signs of a scam" in text and "phishing" in text.lower(),
+            "FAQ is missing the core scam warning-signs guidance")
     require("tesseract" in text.lower(), "the on-device OCR engine script is not referenced")
     _, _, script = http(base_url, "/app.js")
     app_js = script.decode("utf-8", "replace")
