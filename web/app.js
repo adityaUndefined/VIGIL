@@ -92,7 +92,8 @@ async function refreshModelStatus() {
     const model = await response.json();
     const ready = model.status === 'ready';
     status.className = `local-status ${ready ? 'ready' : 'offline'}`;
-    label.textContent = ready ? `LOCAL MODEL READY · ${model.model}` : model.status === 'offline'
+    const provider = model.provider === 'openai' ? 'OPENAI-COMPATIBLE' : 'OLLAMA';
+    label.textContent = ready ? `LOCAL MODEL READY · ${model.model} · ${provider}` : model.status === 'offline'
       ? 'RULE-BASED REVIEW · MODEL OFFLINE'
       : `RULE-BASED REVIEW · ${model.model} NOT INSTALLED`;
     status.title = ready
@@ -465,8 +466,9 @@ function renderResult(data, label = 'CONTENT ANALYSIS') {
   document.querySelector('#evidence-list').classList.remove('hidden');
   document.querySelector('.result-tools').classList.remove('hidden');
   document.querySelector('#result-label').textContent = label;
-  const model = data.local_model || data.analysis?.local_model || { status: 'offline', name: 'Ollama unavailable', signals: [] };
-  document.querySelector('#model-name').textContent = `Ollama · ${model.name || 'local model'}`;
+  const model = data.local_model || data.analysis?.local_model || { status: 'offline', name: 'local model unavailable', signals: [] };
+  const modelProviderLabel = model.provider === 'openai' ? 'Local LLM' : 'Ollama';
+  document.querySelector('#model-name').textContent = `${modelProviderLabel} · ${model.name || 'local model'}`;
   const modelBadge = document.querySelector('#model-badge');
   const modelBadgeLabels = { connected: 'CONNECTED', pending: 'CHECKING', offline: 'RULES FALLBACK' };
   modelBadge.textContent = modelBadgeLabels[model.status] || 'RULES ONLY';

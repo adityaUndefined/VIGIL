@@ -113,7 +113,7 @@ Screenshots are processed in the browser; the extracted text and coordinates are
   The rules-based verdict works without Ollama or internet access.
 
 - **Optional local LLM explanation**  
-  Ollama can provide an additional plain-language review of the detected evidence.
+  Connect your own local model — native Ollama or any OpenAI-compatible local server (LM Studio, llama.cpp, vLLM, Jan, LocalAI) — for an additional plain-language review of the detected evidence. See `BUILD.md` § 5.
 
 - **Rules-only fallback**  
   If the local model is unavailable or its response fails validation, VIGIL falls back to a deterministic explanation.

@@ -118,12 +118,54 @@ def find_brand_domain_mismatch(text: str) -> list[dict[str, str]]:
     return findings
 
 
-OLLAMA_URL = os.environ.get("VIGIL_OLLAMA_URL", "http://127.0.0.1:11434")
-OLLAMA_MODEL = os.environ.get("VIGIL_OLLAMA_MODEL", "qwen3.5:2b")
 ZERO_WIDTH_PATTERN = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
 ANALYSIS_JOBS: dict[str, dict] = {}
 ANALYSIS_JOBS_LOCK = Lock()
 MODEL_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="vigil-local-model")
+
+
+def resolve_llm_config() -> dict:
+    """Resolve the optional local LLM from environment variables.
+
+    Two ways to connect a model:
+
+    - Native Ollama (default, backward compatible):
+        VIGIL_OLLAMA_URL   (default http://127.0.0.1:11434)
+        VIGIL_OLLAMA_MODEL (default qwen3.5:2b)
+    - Any OpenAI-compatible local server (LM Studio, llama.cpp server, vLLM,
+      Jan, LocalAI, Ollama's OpenAI endpoint, ...):
+        VIGIL_LLM_BASE_URL (e.g. http://127.0.0.1:1234/v1)
+        VIGIL_LLM_MODEL    (model id the server exposes)
+        VIGIL_LLM_PROVIDER (optional: "openai" default, or "ollama")
+        VIGIL_LLM_API_KEY  (optional; most local servers need none)
+    """
+    base_url = os.environ.get("VIGIL_LLM_BASE_URL", "").strip()
+    if base_url:
+        provider = os.environ.get("VIGIL_LLM_PROVIDER", "openai").strip().lower()
+        if provider not in {"openai", "ollama"}:
+            provider = "openai"
+        return {
+            "provider": provider,
+            "base_url": base_url.rstrip("/"),
+            "model": os.environ.get("VIGIL_LLM_MODEL", "").strip() or "local-model",
+            "api_key": os.environ.get("VIGIL_LLM_API_KEY", "").strip(),
+        }
+    return {
+        "provider": "ollama",
+        "base_url": os.environ.get("VIGIL_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/"),
+        "model": os.environ.get("VIGIL_OLLAMA_MODEL", "qwen3.5:2b"),
+        "api_key": "",
+    }
+
+
+LLM_CONFIG = resolve_llm_config()
+
+
+def _llm_headers() -> dict:
+    headers = {"Content-Type": "application/json"}
+    if LLM_CONFIG["provider"] == "openai" and LLM_CONFIG["api_key"]:
+        headers["Authorization"] = f"Bearer {LLM_CONFIG['api_key']}"
+    return headers
 
 LLM_SIGNAL_TYPES = {
     "urgency": "Pressure or urgency language",
@@ -360,7 +402,7 @@ def validate_model_explanation(candidate: object, allowed_evidence_ids: set[str]
 
 
 def review_with_local_model(content: str, result: dict) -> dict:
-    """Use Ollama as an advisory detector; require verbatim source quotes."""
+    """Use the configured local LLM as an advisory detector; require verbatim source quotes."""
     rule_decision = result["decision"]
     allowed_evidence_ids = {item["id"] for item in result["evidence"]}
     system = (
@@ -375,26 +417,43 @@ def review_with_local_model(content: str, result: dict) -> dict:
         "Return an empty signals array and empty citations if no concrete signal is present."
     )
     user = json.dumps({"content": content[:6_000], "rule_evidence": result["evidence"]}, ensure_ascii=False)
-    request_body = json.dumps({
-        "model": OLLAMA_MODEL,
-        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        "format": "json",
-        "stream": False,
-        "think": False,
-        "keep_alive": "10m",
-        "options": {"temperature": 0, "num_predict": 160, "num_ctx": 2048},
-    }).encode("utf-8")
-    request = Request(OLLAMA_URL.rstrip("/") + "/api/chat", data=request_body,
-                      headers={"Content-Type": "application/json"}, method="POST")
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    if LLM_CONFIG["provider"] == "openai":
+        # OpenAI-compatible local servers: LM Studio, llama.cpp server, vLLM,
+        # Jan, LocalAI, and Ollama's own OpenAI endpoint all speak this shape.
+        endpoint = LLM_CONFIG["base_url"] + "/chat/completions"
+        request_body = json.dumps({
+            "model": LLM_CONFIG["model"],
+            "messages": messages,
+            "temperature": 0,
+            "max_tokens": 160,
+        }).encode("utf-8")
+    else:
+        endpoint = LLM_CONFIG["base_url"] + "/api/chat"
+        request_body = json.dumps({
+            "model": LLM_CONFIG["model"],
+            "messages": messages,
+            "format": "json",
+            "stream": False,
+            "think": False,
+            "keep_alive": "10m",
+            "options": {"temperature": 0, "num_predict": 160, "num_ctx": 2048},
+        }).encode("utf-8")
+    request = Request(endpoint, data=request_body, headers=_llm_headers(), method="POST")
     try:
         # A small local model on CPU can take longer than a short HTTP timeout
         # to produce the structured review. The rule verdict is already returned
         # to the UI, so allow the background review time to finish.
         with urlopen(request, timeout=OLLAMA_REVIEW_TIMEOUT_SECONDS) as response:
             payload = json.loads(response.read().decode("utf-8"))
-        if not isinstance(payload, dict) or not isinstance(payload.get("message"), dict):
+        if not isinstance(payload, dict):
             raise ValueError("Unexpected local-model response shape")
-        raw = payload["message"].get("content", "")
+        if LLM_CONFIG["provider"] == "openai":
+            choices = payload.get("choices")
+            raw = choices[0].get("message", {}).get("content", "") if isinstance(choices, list) and choices else ""
+        else:
+            message = payload.get("message")
+            raw = message.get("content", "") if isinstance(message, dict) else ""
         if not isinstance(raw, str):
             raise ValueError("Unexpected local-model response content")
         parsed = json.loads(raw)
@@ -440,7 +499,8 @@ def review_with_local_model(content: str, result: dict) -> dict:
             result["explanation"] = model_explanation
         else:
             result["explanation"] = explanation(result["evidence"], result["decision"])
-        result["local_model"] = {"status": "connected", "name": OLLAMA_MODEL,
+        result["local_model"] = {"status": "connected", "name": LLM_CONFIG["model"],
+                                  "provider": LLM_CONFIG["provider"],
                                   "signals_added": len(accepted_signals), "signals": accepted_signals,
                                   "verification": {
                                       "status": "partial" if rejected else "passed",
@@ -450,7 +510,8 @@ def review_with_local_model(content: str, result: dict) -> dict:
                                       "rejected": rejected,
                                   }}
     except (URLError, TimeoutError, OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
-        result["local_model"] = {"status": "offline", "name": OLLAMA_MODEL,
+        result["local_model"] = {"status": "offline", "name": LLM_CONFIG["model"],
+                                  "provider": LLM_CONFIG["provider"],
                                   "signals_added": 0, "signals": [],
                                   "verification": {"status": "not_run", "checked": 0,
                                                    "verified": 0, "rejected": 0}}
@@ -458,16 +519,25 @@ def review_with_local_model(content: str, result: dict) -> dict:
 
 
 def local_model_status() -> dict:
-    request = Request(OLLAMA_URL.rstrip("/") + "/api/tags")
+    """Probe the configured local LLM endpoint so the UI can show availability."""
     try:
-        with urlopen(request, timeout=1.5) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        models = [model.get("name", "") for model in payload.get("models", [])]
-        available = OLLAMA_MODEL in models
-        return {"status": "ready" if available else "model_missing", "model": OLLAMA_MODEL,
-                "models": models}
+        if LLM_CONFIG["provider"] == "openai":
+            request = Request(LLM_CONFIG["base_url"] + "/models", headers=_llm_headers())
+            with urlopen(request, timeout=1.5) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            models = [item.get("id", "") for item in payload.get("data", []) if isinstance(item, dict)]
+            available = LLM_CONFIG["model"] in models if models else True
+        else:
+            request = Request(LLM_CONFIG["base_url"] + "/api/tags")
+            with urlopen(request, timeout=1.5) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            models = [model.get("name", "") for model in payload.get("models", [])]
+            available = LLM_CONFIG["model"] in models
+        return {"status": "ready" if available else "model_missing", "model": LLM_CONFIG["model"],
+                "provider": LLM_CONFIG["provider"], "models": models}
     except (URLError, TimeoutError, OSError, ValueError, json.JSONDecodeError):
-        return {"status": "offline", "model": OLLAMA_MODEL, "models": []}
+        return {"status": "offline", "model": LLM_CONFIG["model"],
+                "provider": LLM_CONFIG["provider"], "models": []}
 
 
 def explanation(items: list[dict[str, str]], decision: str) -> dict:
@@ -594,7 +664,8 @@ def guard_action(content: str, action: str, agent_id: str = "") -> dict:
 def pending_model_status() -> dict:
     return {
         "status": "pending",
-        "name": OLLAMA_MODEL,
+        "name": LLM_CONFIG["model"],
+        "provider": LLM_CONFIG["provider"],
         "signals_added": 0,
         "signals": [],
         "verification": {"status": "pending", "checked": 0, "verified": 0, "rejected": 0},
@@ -627,7 +698,8 @@ def _finish_model_review(job_id: str, content: str, rules_result: dict, action: 
     except Exception:
         rules_result["local_model"] = {
             "status": "offline",
-            "name": OLLAMA_MODEL,
+            "name": LLM_CONFIG["model"],
+            "provider": LLM_CONFIG["provider"],
             "signals_added": 0,
             "signals": [],
             "verification": {"status": "not_run", "checked": 0, "verified": 0, "rejected": 0},
@@ -680,17 +752,26 @@ def read_analysis_job(job_id: str) -> dict | None:
 
 def warm_local_model() -> None:
     """Load the configured local model in the background when VIGIL starts."""
-    body = json.dumps({
-        "model": OLLAMA_MODEL,
-        "prompt": "Return only OK.",
-        "stream": False,
-        "think": False,
-        "keep_alive": "10m",
-        "options": {"temperature": 0, "num_predict": 1, "num_ctx": 128},
-    }).encode("utf-8")
-    request = Request(OLLAMA_URL.rstrip("/") + "/api/generate", data=body,
-                      headers={"Content-Type": "application/json"}, method="POST")
     try:
+        if LLM_CONFIG["provider"] == "openai":
+            body = json.dumps({
+                "model": LLM_CONFIG["model"],
+                "messages": [{"role": "user", "content": "Return only OK."}],
+                "temperature": 0,
+                "max_tokens": 1,
+            }).encode("utf-8")
+            endpoint = LLM_CONFIG["base_url"] + "/chat/completions"
+        else:
+            body = json.dumps({
+                "model": LLM_CONFIG["model"],
+                "prompt": "Return only OK.",
+                "stream": False,
+                "think": False,
+                "keep_alive": "10m",
+                "options": {"temperature": 0, "num_predict": 1, "num_ctx": 128},
+            }).encode("utf-8")
+            endpoint = LLM_CONFIG["base_url"] + "/api/generate"
+        request = Request(endpoint, data=body, headers=_llm_headers(), method="POST")
         with urlopen(request, timeout=30) as response:
             response.read(2_048)
     except (URLError, TimeoutError, OSError, ValueError):
