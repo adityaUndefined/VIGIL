@@ -104,16 +104,17 @@ async function refreshModelStatus() {
 }
 refreshModelStatus();
 
-/* --- Scanner navigation: the topbar Scanner link opens VIGIL Vision ------- */
+/* --- Anchor navigation: #scanner (VIGIL Vision workbench) + #agent-review -- */
 
 const scannerSection = document.querySelector('#scanner');
+const agentReviewSection = document.querySelector('#agent-review');
 
-function highlightScanner() {
-  if (!scannerSection) return;
-  scannerSection.classList.remove('panel-highlight');
-  void scannerSection.offsetWidth; /* restart the pulse animation */
-  scannerSection.classList.add('panel-highlight');
-  window.setTimeout(() => scannerSection.classList.remove('panel-highlight'), 1800);
+function highlightPanel(panel) {
+  if (!panel) return;
+  panel.classList.remove('panel-highlight');
+  void panel.offsetWidth; /* restart the pulse animation */
+  panel.classList.add('panel-highlight');
+  window.setTimeout(() => panel.classList.remove('panel-highlight'), 1800);
 }
 
 function goToScanner(event) {
@@ -124,16 +125,29 @@ function goToScanner(event) {
   if (window.visionModeEnter) window.visionModeEnter();
   const heading = document.querySelector('#input-heading');
   if (heading) heading.focus({ preventScroll: true });
-  highlightScanner();
+  highlightPanel(scannerSection);
+}
+
+function goToAgentReview(event) {
+  if (event) event.preventDefault();
+  if (history.replaceState) history.replaceState(null, '', '#agent-review');
+  if (agentReviewSection) agentReviewSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const heading = document.querySelector('#agent-review-title');
+  if (heading) heading.focus({ preventScroll: true });
+  highlightPanel(agentReviewSection);
 }
 
 function bindAnchorNav() {
-  const link = document.querySelector('.topbar-nav a[href="#scanner"]');
-  if (link) link.addEventListener('click', goToScanner);
+  const scannerLink = document.querySelector('.topbar-nav a[href="#scanner"]');
+  if (scannerLink) scannerLink.addEventListener('click', goToScanner);
+  const agentLink = document.querySelector('.topbar-nav a[href="#agent-review"]');
+  if (agentLink) agentLink.addEventListener('click', goToAgentReview);
   window.addEventListener('hashchange', () => {
     if (location.hash === '#scanner') goToScanner();
+    if (location.hash === '#agent-review') goToAgentReview();
   });
   if (location.hash === '#scanner') goToScanner();
+  if (location.hash === '#agent-review') goToAgentReview();
 }
 bindAnchorNav();
 

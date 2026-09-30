@@ -214,6 +214,25 @@
     if (button) button.addEventListener('click', () => leaveVision(mode));
   });
 
+  // Topbar "VIGIL Vision" link and #vision deep link: open Vision mode and
+  // land on the workbench (mirrors app.js's #scanner anchor behavior).
+  const workbench = $('#scanner');
+  function openVisionFromLink() {
+    modeButton.click(); // reuses the mode handler, including its busy guard
+    if (workbench) workbench.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  const topbarVisionLink = document.querySelector('[data-vision-link]');
+  if (topbarVisionLink) {
+    topbarVisionLink.addEventListener('click', (event) => {
+      event.preventDefault(); // there is no #vision element; the mode opens instead
+      openVisionFromLink();
+    });
+  }
+  window.addEventListener('hashchange', () => {
+    if (location.hash === '#vision') openVisionFromLink();
+  });
+  if (location.hash === '#vision') openVisionFromLink();
+
   // ------------------------------------------------------------------
   // Upload interactions
   // ------------------------------------------------------------------

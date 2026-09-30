@@ -29,9 +29,9 @@
   <header class="topbar">
     <a class="brand" href="/" aria-label="VIGIL home"><span class="brand-mark">V</span><span>VIGIL</span><span class="brand-descriptor">Private Security Review</span></a>
     <nav class="topbar-nav" aria-label="Main navigation">
-      <a href="#scanner" data-vision-link>Scanner</a>
+      <a href="#vision" data-vision-link>VIGIL Vision</a>
       <a href="#agent-review">Agent guard</a>
-      <a href="#how-it-works">How it works</a>
+      <a href="#faq">FAQ</a>
     </nav>
     <div class="topbar-actions">
       <div id="ollama-status" class="local-status" role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
@@ -119,7 +119,7 @@
         </form>
 
         <section class="action-box" id="agent-review" aria-labelledby="agent-review-title">
-          <div><p class="eyebrow">AGENT GUARD</p><h3 id="agent-review-title">Review a proposed action</h3></div>
+          <div><p class="eyebrow">AGENT GUARD</p><h3 id="agent-review-title" tabindex="-1">Review a proposed action</h3></div>
           <p class="action-description">Check whether an agent should continue with an action based on the content above.</p>
           <div class="action-controls">
             <label class="sr-only" for="action">Proposed action</label>
@@ -276,6 +276,110 @@
         <article class="principle-card"><span class="principle-number">01</span><h3>Your content stays here</h3><p>Messages and page source are processed by the local VIGIL service. Submitted URLs are inspected as text, never opened.</p></article>
         <article class="principle-card"><span class="principle-number">02</span><h3>Rules make the decision</h3><p>Visible evidence drives ALLOW, WARN, or DENY. The optional local model may add a warning, but cannot clear a rule-based denial.</p></article>
         <article class="principle-card"><span class="principle-number">03</span><h3>Actions stay yours</h3><p>Agent checks evaluate a proposed action. VIGIL never sends a message, shares data, opens a link, or pays on your behalf.</p></article>
+      </div>
+    </section>
+
+    <section class="faq-section" id="faq" aria-labelledby="faq-title">
+      <div class="section-heading">
+        <p class="eyebrow">SCAM AWARENESS</p>
+        <h2 id="faq-title">Frequently asked questions</h2>
+        <p>The warning signs consumer-protection agencies teach, and how VIGIL checks them automatically before you act.</p>
+      </div>
+      <div class="faq-list">
+        <details class="faq-item">
+          <summary>
+            <span class="faq-question">What are the most common warning signs of a scam?</span>
+            <span class="faq-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="faq-answer">
+            <p>Consumer-protection agencies such as the U.S. FTC and Australia's Scamwatch point to the same core red flags:</p>
+            <ul>
+              <li><strong>Urgency and pressure</strong> — “act now,” “your account will be blocked today.” Real organizations give you time to verify.</li>
+              <li><strong>Unexpected contact claiming a problem or a prize</strong> — suspicious activity, a refund you're owed, or winnings from a draw you never entered.</li>
+              <li><strong>Requests for money or personal information</strong> — OTPs, passwords, card numbers, or payment by gift card, wire transfer, or crypto.</li>
+              <li><strong>Links or attachments you didn't ask for</strong> — especially shortened or look-alike addresses (paypa1.com, bit.ly).</li>
+              <li><strong>Requests for secrecy</strong> — “don't tell the bank” or “keep this between us” is a hallmark of fraud.</li>
+              <li><strong>Too good to be true</strong> — guaranteed returns, free money, or a deal that expires in minutes.</li>
+            </ul>
+            <p>One sign alone can be an honest mistake. Several together are the usual shape of a scam — which is why VIGIL correlates evidence instead of judging any single signal.</p>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary>
+            <span class="faq-question">How do I spot a phishing message or email?</span>
+            <span class="faq-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="faq-answer">
+            <p>Look past the branding — logos are copied in seconds:</p>
+            <ul>
+              <li><strong>Check the sender</strong> — display names are trivially spoofed; the real address behind the name often reveals a stranger's domain.</li>
+              <li><strong>Watch the story</strong> — phishing messages follow a script: a problem with your account, a payment that failed, a login you don't recognize, an invoice you never made.</li>
+              <li><strong>Treat credential asks as hostile</strong> — no legitimate service needs your password or OTP from a message you didn't initiate.</li>
+              <li><strong>Beware greetings like “Dear customer”</strong> — your bank knows your name.</li>
+            </ul>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary>
+            <span class="faq-question">Is it safe to click the link in this message?</span>
+            <span class="faq-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="faq-answer">
+            <p>Check the destination before you touch it:</p>
+            <ul>
+              <li><strong>Hover or long-press</strong> the link to preview the real address — it matters more than the visible text.</li>
+              <li><strong>Shorteners hide everything</strong> — treat bit.ly-style links in unexpected messages as untrusted.</li>
+              <li><strong>Look-alike domains</strong> swap letters for digits (rn for m, 1 for l) or append the real brand to an unrelated domain.</li>
+              <li><strong>If a “bank” links you to a login page, don't go through the link</strong> — open the site yourself by typing the address you already use.</li>
+            </ul>
+            <p>VIGIL inspects the address as text and will not open it, so you can review a link here without exposing your browser to it.</p>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary>
+            <span class="faq-question">Why would a scammer send a QR code?</span>
+            <span class="faq-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="faq-answer">
+            <p>A QR code hides its destination, so you can't read where it goes before scanning — a trick now called “quishing.” Common plays:</p>
+            <ul>
+              <li><strong>Swapped payment stickers</strong> — a genuine parking-meter or merchant QR replaced with one paying the scammer.</li>
+              <li><strong>Login pages in image form</strong> — a code that opens a fake sign-in page asking for your credentials.</li>
+              <li><strong>Payment requests in messages</strong> — UPI or wallet QRs attached to “refund” or “verification” stories.</li>
+            </ul>
+            <p>VIGIL Vision decodes QR codes locally and analyzes the destination text without ever opening it.</p>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary>
+            <span class="faq-question">What should I do if I already replied or shared information?</span>
+            <span class="faq-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="faq-answer">
+            <p>Act quickly — most damage happens in the first hour:</p>
+            <ul>
+              <li><strong>Shared a password?</strong> Change it now, starting with your email and banking accounts.</li>
+              <li><strong>Shared an OTP or card details?</strong> Call your bank on the official number from their website or your card — never a number from the message.</li>
+              <li><strong>Paid by gift card, wire, or crypto?</strong> Contact the company immediately and report it; recovery is rare but faster reports help.</li>
+              <li><strong>Report it</strong> — reportfraud.ftc.gov (US), scamwatch.gov.au (AU), or your local cybercrime portal; forward phishing texts to 7726 (SPAM).</li>
+            </ul>
+          </div>
+        </details>
+        <details class="faq-item">
+          <summary>
+            <span class="faq-question">How does VIGIL decide whether something is a scam?</span>
+            <span class="faq-chevron" aria-hidden="true">▾</span>
+          </summary>
+          <div class="faq-answer">
+            <p>VIGIL matches content against known scam patterns — credential and payment requests, urgency, impersonation, suspicious destinations, and hidden instructions aimed at AI agents — then correlates what it finds, so no single weak signal can produce a verdict on its own:</p>
+            <ul>
+              <li><strong>ALLOW</strong> — no known signals matched. This is never a guarantee that content is safe.</li>
+              <li><strong>WARN</strong> — some signals matched; pause and verify before acting.</li>
+              <li><strong>DENY</strong> — high-risk rules matched. Rules decide denial; the optional local model can add a warning but never clear one.</li>
+            </ul>
+            <p>Everything runs on this device — VIGIL never visits the links you submit and sends nothing to a cloud service.</p>
+          </div>
+        </details>
       </div>
     </section>
 
