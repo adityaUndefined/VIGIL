@@ -40,6 +40,10 @@
     {
       "source": "/vendor/:path*",
       "destination": "/web/vendor/:path*"
+    },
+    {
+      "source": "/api/vision/analyze",
+      "destination": "/api/vision-analyze"
     }
   ]
 }
