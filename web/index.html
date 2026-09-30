@@ -18,8 +18,6 @@
   </script>
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/verification.css">
-  <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/verification.css">
   <link rel="stylesheet" href="/vision.css">
   <script src="/vendor/jsQR.js" defer></script>
   <script src="/vendor/qrcode-generator.js" defer></script>
@@ -72,7 +70,6 @@
             <button id="mode-vision" class="input-mode input-mode-vision" type="button" aria-pressed="false" data-mode="vision">📸 VIGIL Vision</button>
             <button id="mode-url" class="input-mode" type="button" aria-pressed="false" data-mode="url">🔗 URL</button>
             <button id="mode-html" class="input-mode" type="button" aria-pressed="false" data-mode="html">📄 HTML</button>
-            <button id="mode-scan" class="input-mode" type="button" aria-pressed="false" data-mode="scan">Screenshot (OCR)</button>
           </div>
 
           <div id="vision-panel" class="vision-panel" data-input-panel="vision" hidden>
@@ -110,30 +107,6 @@
           <div id="html-panel" class="input-field" data-input-panel="html" hidden>
             <label class="field-label" for="content-html">HTML source</label>
             <textarea id="content-html" maxlength="200000" spellcheck="false" placeholder="Paste the page source or message HTML…"></textarea>
-          </div>
-
-          <div id="scan-panel" class="input-field" data-input-panel="scan" hidden>
-            <p class="field-label">Screenshot or photo of a message</p>
-            <div id="scan-dropzone" class="scan-dropzone" role="button" tabindex="0"
-                 aria-label="Choose an image to scan: upload a screenshot or photo of a message, then VIGIL extracts the text on this device and reviews it">
-              <input id="scan-file" class="sr-only" type="file" accept="image/png, image/jpeg, image/webp, image/bmp, image/gif" />
-              <span class="scan-dropzone-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2"/><rect x="7" y="7" width="10" height="10" rx="1.5"/></svg>
-              </span>
-              <p class="scan-dropzone-title">Drop a screenshot here, or choose an image</p>
-              <p class="scan-dropzone-hint">PNG, JPEG, WebP, BMP or GIF · The image is read on this device and never uploaded.</p>
-            </div>
-            <div id="scan-preview" class="scan-preview hidden">
-              <img id="scan-image" alt="Preview of the screenshot being scanned" />
-              <p id="scan-status" class="scan-status" role="status" aria-live="polite"></p>
-              <div class="scan-actions">
-                <button id="scan-rechoose" class="button-quiet" type="button">Choose another image</button>
-                <button id="scan-remove" class="button-quiet" type="button">Remove image</button>
-              </div>
-            </div>
-            <label class="field-label" for="content-scan">Text found in the image</label>
-            <textarea id="content-scan" maxlength="200000" spellcheck="false"
-                      placeholder="Extracted text appears here — check it, edit if needed, then run the review."></textarea>
           </div>
 
           <div class="input-footer" id="text-input-footer">
