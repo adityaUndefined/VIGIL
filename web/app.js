@@ -104,7 +104,7 @@ async function refreshModelStatus() {
 }
 refreshModelStatus();
 
-/* --- Visible anchor navigation (#scanner workbench, #agent-review guard) -- */
+/* --- Anchor navigation: #scanner (VIGIL Vision workbench) + #agent-review -- */
 
 const scannerSection = document.querySelector('#scanner');
 const agentReviewSection = document.querySelector('#agent-review');
@@ -121,6 +121,8 @@ function goToScanner(event) {
   if (event) event.preventDefault();
   if (history.replaceState) history.replaceState(null, '', '#scanner');
   if (scannerSection) scannerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Screenshots are VIGIL Vision's job now: land the user directly on it.
+  if (window.visionModeEnter) window.visionModeEnter();
   const heading = document.querySelector('#input-heading');
   if (heading) heading.focus({ preventScroll: true });
   highlightPanel(scannerSection);

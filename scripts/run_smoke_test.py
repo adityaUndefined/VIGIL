@@ -126,12 +126,14 @@ def check_static_assets(base_url: str) -> None:
     _, _, html = http(base_url, "/")
     text = html.decode("utf-8", "replace")
     require("VIGIL" in text and "Private Security Review" in text, "/ is missing the VIGIL page markup")
-    # Workbench anchor target, topbar nav, and the VIGIL Vision screenshot mode.
+    # Topbar nav (Vision / Agent guard / FAQ), #scanner workbench anchor, and
+    # the VIGIL Vision screenshot mode with its local OCR engine.
     require('id="scanner"' in text, "/ is missing the #scanner section target")
     require('data-vision-link' in text and 'href="#vision"' in text,
             "topbar VIGIL Vision link is missing")
     require('href="#agent-review"' in text and 'id="agent-review"' in text,
             "topbar Agent guard link or the #agent-review box is missing")
+    require('href="#faq"' in text and 'id="faq"' in text, "topbar FAQ link or the #faq section is missing")
     require('href="#scanner"' not in text,
             "topbar should not link the Scanner anchor directly")
     require('href="#how-it-works"' not in text,
@@ -147,8 +149,11 @@ def check_static_assets(base_url: str) -> None:
     require("tesseract" in text.lower(), "the on-device OCR engine script is not referenced")
     _, _, script = http(base_url, "/app.js")
     app_js = script.decode("utf-8", "replace")
-    require("goToScanner" in app_js and "clearResult" in app_js,
-            "/app.js is missing the anchor-navigation and result-reset wiring")
+    require("goToScanner" in app_js and "visionModeEnter" in app_js and "clearResult" in app_js,
+            "/app.js scanner navigation must call window.visionModeEnter (vision.js) and expose clearResult")
+    _, _, vision_js = http(base_url, "/vision.js")
+    require("visionModeEnter" in vision_js.decode("utf-8", "replace"),
+            "/vision.js is missing the visionModeEnter entry point")
 
 
 def check_get_apis(base_url: str) -> None:
