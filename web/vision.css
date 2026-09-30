@@ -195,12 +195,25 @@
 
 .vision-canvas-holder {
   position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
   background: #10251a;
 }
-.vision-canvas-holder canvas { display: block; width: 100%; height: auto; }
+.vision-canvas-holder canvas {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 420px; /* keep tall screenshots (SMS threads, login pages) compact */
+  margin: 0 auto;
+}
+@media (max-width: 600px) {
+  .vision-canvas-holder canvas { max-height: 300px; }
+}
 .vision-overlay-hint { margin: 8px 0 0; color: var(--quiet); font-size: 11px; }
 .vision-overlay-hint.hidden { display: none; }
 

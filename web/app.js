@@ -104,7 +104,7 @@ async function refreshModelStatus() {
 }
 refreshModelStatus();
 
-/* --- Visible #scanner anchor navigation ----------------------------------- */
+/* --- Scanner navigation: the topbar Scanner link opens VIGIL Vision ------- */
 
 const scannerSection = document.querySelector('#scanner');
 
@@ -120,6 +120,8 @@ function goToScanner(event) {
   if (event) event.preventDefault();
   if (history.replaceState) history.replaceState(null, '', '#scanner');
   if (scannerSection) scannerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // Screenshots are VIGIL Vision's job now: land the user directly on it.
+  if (window.visionModeEnter) window.visionModeEnter();
   const heading = document.querySelector('#input-heading');
   if (heading) heading.focus({ preventScroll: true });
   highlightScanner();
