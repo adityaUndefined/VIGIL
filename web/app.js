@@ -1,8 +1,7 @@
 const contentInputs = {
   message: document.querySelector('#content-message'),
   url: document.querySelector('#content-url'),
-  html: document.querySelector('#content-html'),
-  scan: document.querySelector('#content-scan')
+  html: document.querySelector('#content-html')
 };
 const modeButtons = [...document.querySelectorAll('[data-mode]')];
 const analyzeButton = document.querySelector('#analyze');
@@ -38,9 +37,7 @@ function updateCount() {
     ? 'The address is checked as text; VIGIL will not visit the website.'
     : activeMode === 'html'
       ? 'HTML is scanned for visible and hidden instructions · Analysis stays on this device'
-      : activeMode === 'scan'
-        ? 'Text is extracted from the image on this device · The image is never uploaded'
-        : 'Your message is analyzed on this device · It is not sent to a cloud service';
+      : 'Your message is analyzed on this device · It is not sent to a cloud service';
 }
 
 function setMode(mode) {
@@ -107,261 +104,6 @@ async function refreshModelStatus() {
 }
 refreshModelStatus();
 
-/* --- Screenshot (OCR) scanner -------------------------------------------- */
-
-const scanState = {
-  engine: null,
-  busy: false,
-  file: null,
-  currentObjectUrl: ''
-};
-
-function scanElements() {
-  return {
-    dropzone: document.querySelector('#scan-dropzone'),
-    fileInput: document.querySelector('#scan-file'),
-    preview: document.querySelector('#scan-preview'),
-    image: document.querySelector('#scan-image'),
-    status: document.querySelector('#scan-status'),
-    rechoose: document.querySelector('#scan-rechoose'),
-    remove: document.querySelector('#scan-remove')
-  };
-}
-
-function loadTesseractFallback() {
-  return new Promise((resolve, reject) => {
-    const src = window.TESSERACT_FALLBACK_SRC;
-    if (!src) return reject(new Error('no fallback source'));
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('fallback load failed'));
-    document.head.append(script);
-  });
-}
-
-async function loadScanEngine() {
-  if (scanState.engine) return scanState.engine;
-  if (!('Tesseract' in window)) {
-    try { await loadTesseractFallback(); } catch { /* reported below */ }
-  }
-  if (!('Tesseract' in window)) {
-    throw new Error('The on-device scanner engine could not be loaded. Check your connection and reload the page.');
-  }
-  scanState.engine = await window.Tesseract.createWorker('eng');
-  return scanState.engine;
-}
-
-async function recognizeImage(input, charWhitelist) {
-  const worker = await loadScanEngine();
-  try {
-    await worker.setParameters({ tessedit_char_whitelist: charWhitelist || '' });
-    const { data } = await worker.recognize(input);
-    return data.text || '';
-  } finally {
-    await worker.setParameters({ tessedit_char_whitelist: '' }).catch(() => {});
-  }
-}
-
-const SCAN_MAX_DIMENSION = 2000;
-
-function imageNeedsInversion(img) {
-  try {
-    const sample = document.createElement('canvas');
-    const size = 48;
-    sample.width = size;
-    sample.height = size;
-    const ctx = sample.getContext('2d');
-    if (!ctx) return false;
-    ctx.drawImage(img, 0, 0, size, size);
-    const { data } = ctx.getImageData(0, 0, size, size);
-    let total = 0;
-    let count = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] === 0) continue;
-      total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      count += 1;
-    }
-    return count > 0 && total / count < 110; /* dark background: invert for OCR */
-  } catch {
-    return false;
-  }
-}
-
-async function preprocessImage(file) {
-  const sourceUrl = scanState.currentObjectUrl || URL.createObjectURL(file);
-  const shouldRevoke = !scanState.currentObjectUrl;
-  try {
-    const img = await new Promise((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = () => reject(new Error('The image could not be read. Try a different screenshot.'));
-      image.src = sourceUrl;
-    });
-    // Upscale tiny screenshots (OCR accuracy collapses below ~1000px),
-    // flatten transparency onto white, and invert dark-mode images so
-    // light-on-dark text becomes the dark-on-light OCR expects.
-    const scale = Math.min(SCAN_MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight), 3);
-    const width = Math.max(1, Math.round(img.naturalWidth * scale));
-    const height = Math.max(1, Math.round(img.naturalHeight * scale));
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return file; /* no canvas support: scan the original */
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-    if (imageNeedsInversion(img)) ctx.filter = 'invert(1)';
-    ctx.drawImage(img, 0, 0, width, height);
-    ctx.filter = 'none';
-    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-    return blob || file; /* processing failed: scan the original */
-  } catch (error) {
-    if (error instanceof Error && /could not be read/.test(error.message)) throw error;
-    return file;
-  } finally {
-    if (shouldRevoke) URL.revokeObjectURL(sourceUrl);
-  }
-}
-
-function cleanScanText(text) {
-  return (text || '').replace(/[\t\x0b\f\r \u00a0]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-}
-
-function mergeScanPasses(first, second) {
-  if (!first) return second;
-  if (!second) return first;
-  const condensed = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
-  const accepted = first.split('\n').map((line) => line.trim()).filter(Boolean);
-  const seen = new Set(accepted.map(condensed));
-  const blob = [...seen].join('|');
-  for (const line of second.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const key = condensed(trimmed);
-    /* skip mangled duplicates of text the first pass already captured */
-    if (!key || seen.has(key) || blob.includes(key)) continue;
-    seen.add(key);
-    accepted.push(trimmed);
-  }
-  return accepted.join('\n').trim();
-}
-
-function finishScan(text, twoPass = false) {
-  contentInputs.scan.value = text;
-  updateCount();
-  const note = twoPass ? ' (two-pass scan)' : '';
-  setScanStatus(`Found ${text.length.toLocaleString()} characters${note}. Check the text, then run the review.`);
-}
-
-function setScanStatus(message, isError = false) {
-  const { status } = scanElements();
-  status.textContent = message;
-  status.classList.toggle('is-error', isError);
-}
-
-function openFilePicker() {
-  scanElements().fileInput.click();
-}
-
-function acceptImage(file) {
-  const { preview, image, dropzone } = scanElements();
-  if (!file) return;
-  if (scanState.busy) return;
-  if (!file.type || !file.type.startsWith('image/')) {
-    setScanStatus('That file is not an image. Choose a PNG, JPEG, WebP, BMP, or GIF.', true);
-    return;
-  }
-  if (file.size > 10 * 1024 * 1024) {
-    setScanStatus('That image is larger than 10 MB. Choose a smaller screenshot.', true);
-    return;
-  }
-  if (scanState.currentObjectUrl) URL.revokeObjectURL(scanState.currentObjectUrl);
-  scanState.file = file;
-  scanState.currentObjectUrl = URL.createObjectURL(file);
-  image.src = scanState.currentObjectUrl;
-  preview.classList.remove('hidden');
-  dropzone.classList.add('hidden');
-  runOcr(file);
-}
-
-async function runOcr(file) {
-  scanState.busy = true;
-  setBusy(analyzeButton, true, 'Scanning…');
-  try {
-    setScanStatus('Preparing the image for scanning…');
-    const prepared = await preprocessImage(file);
-    setScanStatus('Reading the text from your image…');
-    const firstCleaned = cleanScanText(await recognizeImage(prepared));
-    if (firstCleaned.length >= 40) {
-      finishScan(firstCleaned);
-      return;
-    }
-    // Sparse or low-contrast text: retry with a constrained alphabet and
-    // merge any extra lines the second pass finds.
-    setScanStatus('Running a second, more thorough pass…');
-    const secondCleaned = cleanScanText(await recognizeImage(prepared, ' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;!?$@#+-/()\'"&%'));
-    const merged = mergeScanPasses(firstCleaned, secondCleaned);
-    if (!merged) {
-      setScanStatus('No readable text was found. Try a sharper, larger screenshot.', true);
-      return;
-    }
-    finishScan(merged, true);
-  } catch (error) {
-    setScanStatus(error?.message || 'The scan failed. Try another image.', true);
-  } finally {
-    scanState.busy = false;
-    setBusy(analyzeButton, false, 'Review content');
-  }
-}
-
-function clearScan() {
-  const { preview, dropzone, fileInput } = scanElements();
-  if (scanState.currentObjectUrl) {
-    URL.revokeObjectURL(scanState.currentObjectUrl);
-    scanState.currentObjectUrl = '';
-  }
-  scanState.file = null;
-  contentInputs.scan.value = '';
-  preview.classList.add('hidden');
-  dropzone.classList.remove('hidden');
-  fileInput.value = '';
-  setScanStatus('');
-}
-
-function bindScanEvents() {
-  const { dropzone, fileInput, rechoose, remove } = scanElements();
-  dropzone.addEventListener('click', openFilePicker);
-  dropzone.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      openFilePicker();
-    }
-  });
-  dropzone.addEventListener('dragover', (event) => {
-    event.preventDefault();
-    dropzone.classList.add('is-dragover');
-  });
-  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('is-dragover'));
-  dropzone.addEventListener('drop', (event) => {
-    event.preventDefault();
-    dropzone.classList.remove('is-dragover');
-    acceptImage(event.dataTransfer.files[0]);
-  });
-  fileInput.addEventListener('change', () => acceptImage(fileInput.files[0]));
-  rechoose.addEventListener('click', (event) => {
-    event.stopPropagation();
-    openFilePicker();
-  });
-  remove.addEventListener('click', (event) => {
-    event.stopPropagation();
-    clearScan();
-  });
-}
-bindScanEvents();
-
 /* --- Visible #scanner anchor navigation ----------------------------------- */
 
 const scannerSection = document.querySelector('#scanner');
@@ -401,7 +143,6 @@ Object.values(contentInputs).forEach((input) => input.addEventListener('input', 
   }
 }));
 clearButton.addEventListener('click', () => {
-  if (activeMode === 'scan') clearScan();
   currentInput().value = '';
   updateCount();
   clearResult();

@@ -199,55 +199,6 @@ input:focus, textarea:focus, select:focus { border-color: #598367; box-shadow: 0
 .input-footer #input-guidance { min-width: 0; }
 .char-count { flex: 0 0 auto; }
 
-/* --- Screenshot (OCR) scanner --- */
-.scan-dropzone {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 26px 18px;
-  text-align: center;
-  min-width: 0;
-  border: 1.5px dashed var(--line-strong);
-  border-radius: 10px;
-  background: var(--green-soft);
-  cursor: pointer;
-}
-.scan-dropzone .scan-dropzone-title,
-.scan-dropzone .scan-dropzone-hint {
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-.scan-dropzone:hover, .scan-dropzone:focus-visible {
-  border-color: var(--accent-strong);
-  outline: none;
-}
-.scan-dropzone.is-dragover {
-  border-color: var(--accent-strong);
-  background: #e9f4ec;
-  box-shadow: inset 0 0 0 1px var(--accent-strong);
-}
-.scan-dropzone-icon svg { width: 30px; height: 30px; stroke: var(--accent-strong); stroke-width: 1.6; fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.scan-dropzone-title { margin: 0; color: var(--ink); font: 600 14px/1.4 var(--sans); }
-.scan-dropzone-hint { margin: 0; color: var(--quiet); font-size: 12px; line-height: 1.5; }
-.scan-preview { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.scan-preview img {
-  max-height: 180px;
-  width: auto;
-  max-width: 100%;
-  align-self: flex-start;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  object-fit: contain;
-}
-.scan-preview .scan-actions { flex-wrap: wrap; }
-.scan-status { margin: 0; color: var(--quiet); font-size: 12.5px; min-width: 0; overflow-wrap: anywhere; }
-.scan-status.is-error { color: var(--danger, #b3261e); font-weight: 600; }
-.scan-actions { display: flex; gap: 8px; }
-.scan-actions .button-quiet { padding: 6px 10px; font-size: 12px; }
-
 @keyframes panel-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgb(31 111 72 / 0); }
   35%, 60% { box-shadow: 0 0 0 4px rgb(31 111 72 / 28%); }
