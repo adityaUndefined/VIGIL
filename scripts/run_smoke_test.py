@@ -130,7 +130,8 @@ def check_static_assets(base_url: str) -> None:
     # Vision dropzone and its local OCR engine script.
     require('id="scanner"' in text, "/ is missing the #scanner section target")
     require('href="#scanner"' in text, "topbar Scanner link is missing")
-    require('data-vision-link' in text, "Scanner link does not carry the VIGIL Vision entry hook")
+    require('data-vision-link' in text and 'data-mode="vision"' in text,
+            "Scanner link does not carry the VIGIL Vision entry hook")
     require('id="vision-panel"' in text and 'id="vision-dropzone"' in text,
             "/ is missing the VIGIL Vision upload UI")
     require('data-mode="scan"' not in text and 'id="scan-panel"' not in text,
@@ -138,8 +139,8 @@ def check_static_assets(base_url: str) -> None:
     require("tesseract" in text.lower(), "the on-device OCR engine script is not referenced")
     _, _, script = http(base_url, "/app.js")
     app_js = script.decode("utf-8", "replace")
-    require("goToScanner" in app_js and "visionModeEnter" in app_js,
-            "/app.js scanner navigation must call window.visionModeEnter (defined in vision.js)")
+    require("goToScanner" in app_js and "visionModeEnter" in app_js and "clearResult" in app_js,
+            "/app.js scanner navigation must call window.visionModeEnter (vision.js) and expose clearResult")
     _, _, vision_js = http(base_url, "/vision.js")
     require("visionModeEnter" in vision_js.decode("utf-8", "replace"),
             "/vision.js is missing the visionModeEnter entry point")
@@ -206,6 +207,43 @@ def check_url_analysis(base_url: str) -> None:
     require(result.get("decision") == "WARN", f"plain-HTTP URL got {result.get('decision')!r}, expected WARN")
     types = {item.get("type") for item in result.get("evidence", []) if isinstance(item, dict)}
     require("url_insecure_transport" in types, f"plain-HTTP URL evidence types were {sorted(types)}")
+
+
+def check_vision_analyze(base_url: str) -> None:
+    """VIGIL Vision: screenshot OCR regions + QR + visual fields -> correlated verdict."""
+    payload = {
+        "image": {"width": 1080, "height": 2400, "sizeBytes": 215000, "type": "image/png"},
+        "ocr": {
+            "regions": [
+                {"text": "HDFC BANK", "confidence": 94, "bbox": {"x": 40, "y": 60, "width": 420, "height": 48}},
+                {"text": "Your KYC has expired. Verify now:", "confidence": 91, "bbox": {"x": 40, "y": 160, "width": 640, "height": 44}},
+                {"text": "secure-hdfc-kyc.example.com", "confidence": 88, "bbox": {"x": 40, "y": 260, "width": 520, "height": 44}},
+                {"text": "Enter password:", "confidence": 87, "bbox": {"x": 40, "y": 310, "width": 300, "height": 44}},
+            ],
+            "meanConfidence": 90,
+        },
+        "qr": [{"data": "upi://pay?pa=fraud@upi.example", "bbox": {"x": 700, "y": 1800, "width": 200, "height": 200}}],
+        "visual": {"rectangles": [{"x": 40, "y": 310, "width": 300, "height": 50, "label": "password"}],
+                   "fields": {"passwordFields": 1, "otpLikeFields": 1}},
+    }
+    status, _, raw = http(base_url, "/api/vision/analyze", "POST", payload)
+    require(status == 200, f"/api/vision/analyze returned HTTP {status} for the phishing screenshot payload")
+    result = json_body(raw)
+    require(isinstance(result, dict) and result.get("ok") is True,
+            "/api/vision/analyze did not return a successful result object")
+    require(result.get("decision") == "DENY",
+            f"vision phishing screenshot got {result.get('decision')!r}, expected DENY")
+    indicators = result.get("indicators")
+    require(isinstance(indicators, list) and len(indicators) >= 2,
+            "vision phishing screenshot reported too few indicators")
+    extracted = result.get("extracted")
+    require(isinstance(extracted, dict) and "hdfc" in str(extracted.get("text", "")).lower(),
+            "vision result did not echo the extracted OCR text")
+
+    status, _, raw = http(base_url, "/api/vision/analyze", "POST",
+                          {"image": {"width": 100, "height": 100}, "ocr": {"regions": [], "meanConfidence": 0}})
+    require(status == 200 and json_body(raw).get("decision") == "ALLOW",
+            "an empty screenshot payload must not invent a threat")
 
 
 def check_check_action(base_url: str) -> None:
@@ -377,6 +415,7 @@ def main() -> int:
         ("benign analyze -> ALLOW + pending job", lambda: check_analyze_benign(base_url)),
         ("phishing + hidden-instruction analyze -> DENY", lambda: check_analyze_threats(base_url)),
         ("URL analysis flags plain HTTP", lambda: check_url_analysis(base_url)),
+        ("vision screenshot analysis (/api/vision/analyze)", lambda: check_vision_analyze(base_url)),
         ("action review matrix", lambda: check_check_action(base_url)),
         ("async analysis job completes", None),
         ("legacy /analyze response shape", lambda: check_legacy_analyze(base_url)),
