@@ -150,10 +150,108 @@ async function loadScanEngine() {
   return scanState.engine;
 }
 
-async function recognizeImage(file) {
+async function recognizeImage(input, charWhitelist) {
   const worker = await loadScanEngine();
-  const { data } = await worker.recognize(file);
-  return data.text || '';
+  try {
+    await worker.setParameters({ tessedit_char_whitelist: charWhitelist || '' });
+    const { data } = await worker.recognize(input);
+    return data.text || '';
+  } finally {
+    await worker.setParameters({ tessedit_char_whitelist: '' }).catch(() => {});
+  }
+}
+
+const SCAN_MAX_DIMENSION = 2000;
+
+function imageNeedsInversion(img) {
+  try {
+    const sample = document.createElement('canvas');
+    const size = 48;
+    sample.width = size;
+    sample.height = size;
+    const ctx = sample.getContext('2d');
+    if (!ctx) return false;
+    ctx.drawImage(img, 0, 0, size, size);
+    const { data } = ctx.getImageData(0, 0, size, size);
+    let total = 0;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] === 0) continue;
+      total += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      count += 1;
+    }
+    return count > 0 && total / count < 110; /* dark background: invert for OCR */
+  } catch {
+    return false;
+  }
+}
+
+async function preprocessImage(file) {
+  const sourceUrl = scanState.currentObjectUrl || URL.createObjectURL(file);
+  const shouldRevoke = !scanState.currentObjectUrl;
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('The image could not be read. Try a different screenshot.'));
+      image.src = sourceUrl;
+    });
+    // Upscale tiny screenshots (OCR accuracy collapses below ~1000px),
+    // flatten transparency onto white, and invert dark-mode images so
+    // light-on-dark text becomes the dark-on-light OCR expects.
+    const scale = Math.min(SCAN_MAX_DIMENSION / Math.max(img.naturalWidth, img.naturalHeight), 3);
+    const width = Math.max(1, Math.round(img.naturalWidth * scale));
+    const height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file; /* no canvas support: scan the original */
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    if (imageNeedsInversion(img)) ctx.filter = 'invert(1)';
+    ctx.drawImage(img, 0, 0, width, height);
+    ctx.filter = 'none';
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    return blob || file; /* processing failed: scan the original */
+  } catch (error) {
+    if (error instanceof Error && /could not be read/.test(error.message)) throw error;
+    return file;
+  } finally {
+    if (shouldRevoke) URL.revokeObjectURL(sourceUrl);
+  }
+}
+
+function cleanScanText(text) {
+  return (text || '').replace(/[\t\x0b\f\r \u00a0]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function mergeScanPasses(first, second) {
+  if (!first) return second;
+  if (!second) return first;
+  const condensed = (value) => value.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const accepted = first.split('\n').map((line) => line.trim()).filter(Boolean);
+  const seen = new Set(accepted.map(condensed));
+  const blob = [...seen].join('|');
+  for (const line of second.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const key = condensed(trimmed);
+    /* skip mangled duplicates of text the first pass already captured */
+    if (!key || seen.has(key) || blob.includes(key)) continue;
+    seen.add(key);
+    accepted.push(trimmed);
+  }
+  return accepted.join('\n').trim();
+}
+
+function finishScan(text, twoPass = false) {
+  contentInputs.scan.value = text;
+  updateCount();
+  const note = twoPass ? ' (two-pass scan)' : '';
+  setScanStatus(`Found ${text.length.toLocaleString()} characters${note}. Check the text, then run the review.`);
 }
 
 function setScanStatus(message, isError = false) {
@@ -191,16 +289,24 @@ async function runOcr(file) {
   scanState.busy = true;
   setBusy(analyzeButton, true, 'Scanning…');
   try {
+    setScanStatus('Preparing the image for scanning…');
+    const prepared = await preprocessImage(file);
     setScanStatus('Reading the text from your image…');
-    const text = await recognizeImage(file);
-    const cleaned = text.replace(/[\t\x0b\f\r \u00a0]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
-    if (!cleaned) {
+    const firstCleaned = cleanScanText(await recognizeImage(prepared));
+    if (firstCleaned.length >= 40) {
+      finishScan(firstCleaned);
+      return;
+    }
+    // Sparse or low-contrast text: retry with a constrained alphabet and
+    // merge any extra lines the second pass finds.
+    setScanStatus('Running a second, more thorough pass…');
+    const secondCleaned = cleanScanText(await recognizeImage(prepared, ' ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,:;!?$@#+-/()\'"&%'));
+    const merged = mergeScanPasses(firstCleaned, secondCleaned);
+    if (!merged) {
       setScanStatus('No readable text was found. Try a sharper, larger screenshot.', true);
       return;
     }
-    contentInputs.scan.value = cleaned;
-    updateCount();
-    setScanStatus(`Found ${cleaned.length.toLocaleString()} characters. Check the text, then run the review.`);
+    finishScan(merged, true);
   } catch (error) {
     setScanStatus(error?.message || 'The scan failed. Try another image.', true);
   } finally {
