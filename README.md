@@ -6,6 +6,8 @@ VIGIL is a local-first security layer for messages, website addresses, and HTML.
 
 Its key focus is not only protecting people from deceptive content, but also detecting hidden instructions that attempt to manipulate AI agents.
 
+**Quick start → [BUILD.md](BUILD.md)** — run the analyzer, load the extension, and verify the build in under a minute. Zero dependencies: the core engine is pure Python standard library.
+
 ---
 
 ## Why VIGIL?
