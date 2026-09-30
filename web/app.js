@@ -46,6 +46,7 @@ function updateCount() {
 function setMode(mode) {
   if (!Object.hasOwn(contentInputs, mode) || mode === activeMode) return;
   activeMode = mode;
+  if (window.visionModeExit) window.visionModeExit(); // let Vision close cleanly first
   modeButtons.forEach((button) => {
     const selected = button.dataset.mode === mode;
     button.classList.toggle('active', selected);
@@ -412,6 +413,7 @@ function clearResult() {
   document.querySelector('#result').classList.add('hidden');
   document.querySelector('#empty-state').classList.remove('hidden');
 }
+window.clearResult = clearResult; // VIGIL Vision reuses this reset
 
 function setBusy(button, busy, label) {
   button.disabled = busy;

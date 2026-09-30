@@ -70,6 +70,7 @@ FIXTURES = [
 
 
 def check_hidden_variants() -> tuple[int, int]:
+    # Keep the backslash escape out of the f-string expression (Python 3.10).
     zero_width_directive = HIDDEN_DIRECTIVE.replace("Ignore", "I\u200bgnore")
     directives = [
         ("display:none", f'<div style="display:none">{HIDDEN_DIRECTIVE}</div>'),

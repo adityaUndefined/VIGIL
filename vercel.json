@@ -14,6 +14,10 @@
       "destination": "/web/app.js"
     },
     {
+      "source": "/vision.js",
+      "destination": "/web/vision.js"
+    },
+    {
       "source": "/style.css",
       "destination": "/web/style.css"
     },
@@ -22,12 +26,20 @@
       "destination": "/web/verification.css"
     },
     {
+      "source": "/vision.css",
+      "destination": "/web/vision.css"
+    },
+    {
       "source": "/favicon.svg",
       "destination": "/web/favicon.svg"
     },
     {
       "source": "/demo-agent-page",
       "destination": "/web/demo-agent-page.html"
+    },
+    {
+      "source": "/vendor/:path*",
+      "destination": "/web/vendor/:path*"
     }
   ]
 }
