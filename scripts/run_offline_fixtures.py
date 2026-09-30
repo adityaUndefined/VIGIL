@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import app
-from app import analyze_content, check_action, validate_model_explanation
+from app import analyze_content, check_action, guard_action, validate_model_explanation
 
 
 DEMO_PAGE = (ROOT / "web" / "demo-agent-page.html").read_text(encoding="utf-8")
@@ -70,10 +70,11 @@ FIXTURES = [
 
 
 def check_hidden_variants() -> tuple[int, int]:
+    zero_width_directive = HIDDEN_DIRECTIVE.replace("Ignore", "I\u200bgnore")
     directives = [
         ("display:none", f'<div style="display:none">{HIDDEN_DIRECTIVE}</div>'),
         ("tiny font", f'<span style="font-size:1px">{HIDDEN_DIRECTIVE}</span>'),
-        ("zero-width text", f'<div hidden>{HIDDEN_DIRECTIVE.replace("Ignore", "I\u200bgnore")}</div>'),
+        ("zero-width text", f'<div hidden>{zero_width_directive}</div>'),
         ("HTML comment", f"<!-- {HIDDEN_DIRECTIVE} -->"),
     ]
     passed = 0
@@ -86,6 +87,28 @@ def check_hidden_variants() -> tuple[int, int]:
         passed += int(ok)
         print(f"  [{'PASS' if ok else 'FAIL'}] invisible instruction: {name}")
     return passed, len(directives)
+
+
+def check_guard_gate() -> tuple[int, int]:
+    """Exercise the fail-closed agent guard on the offline fixture paths."""
+    checks = [
+        # (name, content, action, expected decision)
+        ("guard allows read-only on clean content", BASELINE_EMAIL, "navigate", "ALLOW"),
+        ("guard denies sensitive action on clean content", BASELINE_EMAIL, "send_credentials", "DENY"),
+        ("guard denies summarize on phishing content", FIXTURES[0]["content"], "summarize", "DENY"),
+        ("guard denies navigate on hidden instruction", BASELINE_EMAIL + HIDDEN_DIRECTIVE, "navigate", "DENY"),
+        ("guard denies redirect-wrapped link", BASELINE_EMAIL + " https://bit.ly/x1", "navigate", "DENY"),
+        ("guard denies unknown action", BASELINE_EMAIL, "do_evil_thing", "DENY"),
+    ]
+    passed = 0
+    for name, content, action, expected in checks:
+        result = guard_action(content, action)
+        ok = result["decision"] == expected and result["allowed"] is (expected == "ALLOW")
+        passed += int(ok)
+        print(f"  [{'PASS' if ok else 'FAIL'}] {name}: {result['decision']}")
+    policy_ok = guard_action(BASELINE_EMAIL, "navigate")["policy"]["fail_closed"] is True
+    print(f"  [{'PASS' if policy_ok else 'FAIL'}] guard policy advertises fail_closed")
+    return passed + int(policy_ok), len(checks) + 1
 
 
 def check_explanation_citations() -> bool:
@@ -178,14 +201,16 @@ def main() -> int:
         print(f"[{'PASS' if ok else 'FAIL'}] {fixture['name']} -> {result['decision']}")
 
     variant_passed, variant_total = check_hidden_variants()
+    guard_passed, guard_total = check_guard_gate()
     citation_guard_passed = check_explanation_citations()
     async_passed = check_api_verdict_is_async()
     elapsed = perf_counter() - started
     print(f"{passed}/{len(FIXTURES)} offline fixtures passed in {elapsed:.3f}s.")
     print(f"{variant_passed}/{variant_total} hidden-instruction variants passed.")
+    print(f"{guard_passed}/{guard_total} agent-guard checks passed.")
     print(f"[{'PASS' if citation_guard_passed else 'FAIL'}] model explanation citation and length guard")
     print(f"[{'PASS' if async_passed else 'FAIL'}] API returns rule verdict before delayed model review")
-    return 0 if passed == len(FIXTURES) and variant_passed == variant_total and citation_guard_passed and async_passed else 1
+    return 0 if passed == len(FIXTURES) and variant_passed == variant_total and guard_passed == guard_total and citation_guard_passed and async_passed else 1
 
 
 if __name__ == "__main__":

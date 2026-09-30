@@ -56,6 +56,9 @@ A page can look harmless to a person while containing hidden instructions intend
 - **Chromium extension**  
   Review the current webpage directly from the browser.
 
+- **Fail-closed agent guard**  
+  A machine-facing policy gate (`POST /api/guard`) plus a Python client that AI agents consult before acting — hidden instructions, redirect-wrapped links, and sensitive actions are denied, and the gate fails closed when VIGIL is unreachable. See `agent/README.md`.
+
 ---
 
 ## How It Works
@@ -82,3 +85,5 @@ Agent Action   Explanation
       v
 ALLOW / WARN / DENY
 ```
+
+For AI agents, the same engine powers a stricter, fail-closed gate: agents call `POST /api/guard` (or the Python client in `agent/`) before acting, and only read-only actions on ALLOW-reviewed content are permitted. See `agent/README.md`.
