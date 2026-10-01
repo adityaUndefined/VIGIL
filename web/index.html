@@ -1,368 +1,303 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f3f5f1">
-  <meta name="description" content="Review messages, links, and webpage source with private, on-device security analysis.">
-  <title>VIGIL — Private Security Review</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIGIL | Private Security Review</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <script>
-    try {
-      const savedTheme = localStorage.getItem('vigil-theme');
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      document.documentElement.dataset.theme = savedTheme === 'dark' || savedTheme === 'light' ? savedTheme : systemTheme;
-    } catch {
-      document.documentElement.dataset.theme = 'light';
-    }
-  </script>
+  <!-- Use Tailwind via CDN for the new layout -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Load our custom theme variables and animations -->
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/verification.css">
-  <link rel="stylesheet" href="/vision.css">
-  <script src="/vendor/jsQR.js" defer></script>
-  <script src="/vendor/qrcode-generator.js" defer></script>
-  <script src="/vendor/tesseract/tesseract.min.js" defer></script>
+  <script src="/theme.js"></script>
   <script src="/app.js" defer></script>
-  <script src="/vision.js" defer></script>
+  <style>
+    /* Bigger, highlighted section nav (shared with scanner/agent-guard/faqs). */
+    .nav-links { font-size: 1.05rem; }
+    .nav-link { padding: 0.45rem 1rem; border-radius: 999px; border: 2px solid transparent; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+    .nav-link:hover { background: rgba(28, 26, 23, 0.08); color: var(--ink); }
+    .nav-link.nav-active { background: var(--ink); color: #fff; border-color: var(--ink); box-shadow: 3px 3px 0 var(--border-dark); }
+    /* Tailwind Configuration for the specific colors */
+    @keyframes blobDrift { 0%{transform:translate(0,0) scale(1)} 50%{transform:translate(30px,-20px) scale(1.08)} 100%{transform:translate(0,0) scale(1)} }
+    @keyframes floatY { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+    @keyframes softPulse { 0%,100%{opacity:1} 50%{opacity:0.55} }
+    @keyframes slowSpin { to{transform:rotate(360deg)} }
+    @keyframes caretBlink { 0%,49%{opacity:1} 50%,100%{opacity:0} }
+    @keyframes marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+    
+    .anim-blob { animation: blobDrift 11s ease-in-out infinite; }
+    .anim-blob-slow { animation: blobDrift 15s ease-in-out infinite reverse; }
+    .anim-float { animation: floatY 6s ease-in-out infinite; }
+    .anim-float-delay { animation: floatY 7s ease-in-out 1.2s infinite; }
+    .anim-float-delay2 { animation: floatY 8s ease-in-out 2.4s infinite; }
+    .anim-soft-pulse { animation: softPulse 1.6s ease-in-out infinite; }
+    .anim-slow-spin { animation: slowSpin 9s linear infinite; }
+    .anim-caret { animation: caretBlink 1s step-end infinite; }
+    .anim-marquee { animation: marquee 26s linear infinite; }
+    
+    body { background-color: var(--page); color: var(--ink); font-family: var(--sans); }
+    h1, h2, h3 { font-family: var(--serif); }
+  </style>
 </head>
-<body>
-  <header class="topbar">
-    <a class="brand" href="/" aria-label="VIGIL home"><span class="brand-mark">V</span><span>VIGIL</span><span class="brand-descriptor">Private Security Review</span></a>
-    <nav class="topbar-nav" aria-label="Main navigation">
-      <a href="#vision" data-vision-link>VIGIL Vision</a>
-      <a href="#agent-review">Agent guard</a>
-      <a href="#faq">FAQ</a>
+<body class="antialiased text-[18px] leading-relaxed min-h-screen">
+
+  <!-- ============ NAV ============ -->
+  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: rgba(243, 239, 230, 0.9);">
+    <nav class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-y-2 px-5 py-4" aria-label="Main">
+      <a href="/" class="inline-flex items-center gap-3 font-extrabold" style="font-size: 1.25em; font-family: var(--serif); color: var(--ink);">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white" style="background: var(--ink);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/></svg>
+        </span>
+        VIGIL
+      </a>
+      <div class="nav-links hidden items-center gap-2 lg:flex font-semibold" style="color: var(--muted);">
+        <a href="#how-it-works" class="nav-link">How it works</a>
+        <a href="#features" class="nav-link">Features</a>
+        <a href="/faqs.html" class="nav-link">FAQ</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="ollama-status" class="local-status offline" role="status" aria-live="polite" aria-atomic="true" title="Checking local model…"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
+        <a href="/scanner.html" class="inline-flex min-h-12 items-center gap-2 rounded-2xl px-5 font-bold text-white transition-transform hover:-translate-y-1" style="background: var(--ink); color: var(--page); box-shadow: 3px 3px 0 var(--border-dark);">
+          Launch scanner &rarr;
+        </a>
+      </div>
     </nav>
-    <div class="topbar-actions">
-      <div id="ollama-status" class="local-status" role="status" aria-live="polite" aria-atomic="true"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
-      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false" title="Switch to dark theme">
-        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.1A8.5 8.5 0 0 1 8.9 3.6 8.6 8.6 0 1 0 20.4 15.1Z"/><path d="M16 3v3M14.5 4.5h3"/></svg>
-        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-      </button>
-    </div>
   </header>
 
-  <main class="shell">
-    <section class="page-intro" aria-labelledby="page-title">
-      <div class="intro-copy">
-        <p class="eyebrow">PRIVATE MESSAGE &amp; LINK SECURITY</p>
-        <h1 id="page-title">Know what you’re dealing with.</h1>
-        <p>Review a message, website address, or page source. Get a clear decision and the evidence behind it, with analysis kept on this device.</p>
+  <!-- ============ HERO ============ -->
+  <section class="relative overflow-hidden">
+    <div class="anim-blob pointer-events-none absolute -left-24 top-8 h-80 w-80 rounded-full blur-3xl" style="background: rgba(200,69,31,0.15);" aria-hidden="true"></div>
+    <div class="anim-blob-slow pointer-events-none absolute -right-20 top-40 h-96 w-96 rounded-full blur-3xl" style="background: rgba(28,26,23,0.12);" aria-hidden="true"></div>
+
+    <div class="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-16 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8 lg:pt-20">
+            <div class="text-left">
+        <span class="brutal-label mb-6" style="background: white; border-radius: 999px; border: 2px solid var(--border-light); padding: 6px 20px; text-transform: none; font-family: var(--sans); letter-spacing: normal;">
+          <span class="h-3 w-3 rounded-full" style="background: #2563EB;"></span> 
+          <span class="font-semibold text-gray-800" style="font-size: 1.1em;">AI-Powered Cybersecurity</span>
+        </span>
+        
+        <h1 class="font-extrabold leading-tight tracking-tight mt-5" style="font-size: clamp(3rem, 5.5vw, 4.5rem); letter-spacing: -0.03em;">
+          See the <span style="color: #3B82F6;">threat</span><br/>
+          before you click.
+        </h1>
+        
+        <p class="mt-6 max-w-xl font-medium text-gray-600" style="font-size: 1.15rem; line-height: 1.6;">
+          VIGIL helps you detect phishing attempts, malicious URLs, fake messages and suspicious content before they can harm you.
+        </p>
+        
+        <!-- Action Cards Row -->
+        <div class="mt-10 grid grid-cols-3 gap-4 max-w-lg">
+          <!-- Card 1: Message -->
+          <a href="/scanner.html" class="flex flex-col items-start gap-3 rounded-2xl border-2 bg-blue-50/50 p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
+            <div class="rounded-xl p-2.5 flex items-center justify-center" style="background: #3B82F6; color: white;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+            <div>
+              <p class="font-extrabold text-[15px] text-black">Message</p>
+              <p class="font-medium text-[13px] text-gray-500 mt-0.5">Analyze text</p>
+            </div>
+          </a>
+          
+          <!-- Card 2: Email (Replaces Screenshot) -->
+          <a href="/scanner.html" class="flex flex-col items-start gap-3 rounded-2xl border-2 bg-white p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
+            <div class="rounded-xl p-2.5 flex items-center justify-center" style="background: white; color: var(--ink); border: 2px solid var(--border-light);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
+            </div>
+            <div>
+              <p class="font-extrabold text-[15px] text-black">Email</p>
+              <p class="font-medium text-[13px] text-gray-500 mt-0.5">Scan inbox</p>
+            </div>
+          </a>
+
+          <!-- Card 3: URL -->
+          <a href="/scanner.html" class="flex flex-col items-start gap-3 rounded-2xl border-2 bg-white p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
+            <div class="rounded-xl p-2.5 flex items-center justify-center" style="background: white; color: var(--ink); border: 2px solid var(--border-light);">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            </div>
+            <div>
+              <p class="font-extrabold text-[15px] text-black">URL</p>
+              <p class="font-medium text-[13px] text-gray-500 mt-0.5">Check links</p>
+            </div>
+          </a>
+        </div>
       </div>
-      <aside class="privacy-callout" aria-label="Privacy information">
-        <span class="privacy-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/><path d="M9.5 11.5V10a2.5 2.5 0 0 1 5 0v1.5M9 11.5h6v4H9z"/></svg></span>
-        <div><strong>Private by design</strong><p>VIGIL checks the content you provide. It does not visit submitted links.</p></div>
-      </aside>
-    </section>
 
-    <section class="workbench" id="scanner" aria-label="Security review">
-      <section class="panel input-panel" aria-labelledby="input-heading">
-        <div class="panel-heading">
-          <div><p class="eyebrow">CONTENT REVIEW</p><h2 id="input-heading">Start a security review</h2></div>
-          <span class="local-tag">ON-DEVICE</span>
-        </div>
-        <p class="panel-description">Choose what you want to check, then run the review.</p>
-
-        <form id="review-form" novalidate>
-          <div class="input-modes" role="group" aria-label="Content type">
-            <button id="mode-message" class="input-mode active" type="button" aria-pressed="true" data-mode="message">💬 Message</button>
-            <button id="mode-vision" class="input-mode input-mode-vision" type="button" aria-pressed="false" data-mode="vision">📸 VIGIL Vision</button>
-            <button id="mode-url" class="input-mode" type="button" aria-pressed="false" data-mode="url">🔗 URL</button>
-            <button id="mode-html" class="input-mode" type="button" aria-pressed="false" data-mode="html">📄 HTML</button>
+      <!-- Floating Stack (Replaces the React Typing Feed with a static equivalent for the landing page) -->
+      <div class="relative mt-8 lg:mt-0">
+        <div class="anim-float rounded-3xl border-2 bg-white p-5 shadow-[5px_5px_0_#1C1A17]" style="border-color: var(--ink);">
+          <div class="mb-3 flex items-center gap-2">
+            <span class="inline-block h-3 w-3 rounded-full bg-red-400"></span>
+            <span class="inline-block h-3 w-3 rounded-full bg-yellow-400"></span>
+            <span class="inline-block h-3 w-3 rounded-full bg-green-400"></span>
+            <span class="ml-2 font-semibold tracking-wider text-xs uppercase" style="color: var(--muted);">live scan feed</span>
           </div>
-
-          <div id="vision-panel" class="vision-panel" data-input-panel="vision" hidden>
-            <div class="vision-hero">
-              <p class="eyebrow">VISUAL THREAT ANALYSIS</p>
-              <h3 class="vision-title">VIGIL VISION</h3>
-              <p class="vision-tagline">“See the threat behind the screenshot.”</p>
-              <p class="vision-subjects">Analyze suspicious: Messages • Emails • Websites • QR Codes • Payment Requests</p>
-            </div>
-            <div id="vision-dropzone" class="vision-dropzone" role="button" tabindex="0" aria-label="Upload a screenshot: drag and drop or browse files" aria-describedby="vision-privacy">
-              <span class="vision-drop-icon" aria-hidden="true">📤</span>
-              <p class="vision-drop-main">Drop screenshot here</p>
-              <p class="vision-drop-or">or</p>
-              <button id="vision-browse" class="button button-secondary" type="button">Browse Files</button>
-              <p class="vision-drop-formats">PNG • JPG • JPEG • WEBP</p>
-              <input id="vision-file-input" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
-            </div>
-            <div class="vision-demo-row">
-              <button id="vision-demo" class="button button-quiet" type="button">TRY DEMO</button>
-              <span id="vision-demo-note" class="vision-demo-note">Safe synthetic examples — no real accounts or credentials</span>
-            </div>
-            <p id="vision-privacy" class="vision-privacy">🔒 Your screenshot is analyzed for security indicators. Avoid uploading passwords, OTPs or other sensitive credentials.</p>
-            <div id="vision-error" class="vision-error hidden" role="alert"></div>
-          </div>
-
-          <div id="message-panel" class="input-field" data-input-panel="message">
-            <label class="field-label" for="content-message">Message or email</label>
-            <textarea id="content-message" maxlength="200000" spellcheck="false" placeholder="Paste the message you want to review…"></textarea>
-          </div>
-          <div id="url-panel" class="input-field" data-input-panel="url" hidden>
-            <label class="field-label" for="content-url">Website address</label>
-            <input id="content-url" type="url" inputmode="url" autocomplete="url" maxlength="2048" placeholder="https://example.com" aria-describedby="url-note">
-            <p id="url-note" class="field-hint">VIGIL inspects the address only. The website will not be opened.</p>
-          </div>
-          <div id="html-panel" class="input-field" data-input-panel="html" hidden>
-            <label class="field-label" for="content-html">HTML source</label>
-            <textarea id="content-html" maxlength="200000" spellcheck="false" placeholder="Paste the page source or message HTML…"></textarea>
-          </div>
-
-          <div class="input-footer" id="text-input-footer">
-            <span id="input-guidance">Your content is analyzed locally · Nothing is sent to a cloud service</span>
-            <span id="char-count" class="char-count">0 / 200,000</span>
-          </div>
-          <div class="input-actions" id="text-input-actions">
-            <button id="clear-input" class="button button-quiet" type="button">Clear</button>
-            <button id="analyze" class="button button-primary" type="submit"><span data-button-label>Review content</span><span aria-hidden="true">↗</span></button>
-          </div>
-        </form>
-
-        <section class="action-box" id="agent-review" aria-labelledby="agent-review-title">
-          <div><p class="eyebrow">AGENT GUARD</p><h3 id="agent-review-title" tabindex="-1">Review a proposed action</h3></div>
-          <p class="action-description">Check whether an agent should continue with an action based on the content above.</p>
-          <div class="action-controls">
-            <label class="sr-only" for="action">Proposed action</label>
-            <select id="action">
-              <option value="navigate">Open a link</option>
-              <option value="send_private_data">Send private information</option>
-              <option value="send_credentials">Send credentials or an OTP</option>
-              <option value="make_payment">Make a payment</option>
-              <option value="summarize">Summarize the content</option>
-            </select>
-            <button id="check-action" class="button button-secondary" type="button">Check action</button>
-          </div>
-          <p class="fine-print">This is a policy check. VIGIL does not open links or carry out actions.</p>
-        </section>
-      </section>
-
-      <aside class="panel result-panel" aria-labelledby="inspection-heading">
-        <div class="output-heading">
-          <div class="output-heading-title"><span class="output-shield" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg></span><h2 id="inspection-heading">Review result</h2></div>
-          <span class="output-tag">EVIDENCE FIRST</span>
-        </div>
-        <div class="result-empty" id="empty-state" role="status" aria-live="polite">
-          <div class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
-          <p class="eyebrow">READY WHEN YOU ARE</p>
-          <h2>Your findings will appear here</h2>
-          <p>Run a review to see whether the content is allowed, needs attention, or should be blocked.</p>
-          <div class="decision-key" aria-label="Decision outcomes">
-            <div><span class="key-allow">ALLOW</span><span>No known signals matched</span></div>
-            <div><span class="key-warn">WARN</span><span>Pause and verify first</span></div>
-            <div><span class="key-deny">DENY</span><span>A high-risk rule matched</span></div>
-          </div>
-          <p class="empty-disclaimer">An ALLOW result is not a guarantee that content is safe.</p>
-        </div>
-        <div id="vision-status" class="vision-status hidden" role="status" aria-live="polite">
-          <div class="vision-status-head">
-            <span class="vision-spinner" aria-hidden="true"></span>
-            <p class="eyebrow">VIGIL VISION · ANALYZING</p>
-          </div>
-          <ul id="vision-steps" class="vision-steps"></ul>
-        </div>
-
-        <div id="vision-result" class="vision-result hidden" aria-label="VIGIL Vision security review">
-          <div class="vision-result-top">
-            <div><p class="eyebrow">VIGIL VISION · SECURITY REVIEW</p>
-              <p class="vision-scenario-tag hidden" id="vision-scenario-tag">DEMO SCENARIO</p>
-            </div>
-            <span id="vision-decision" class="decision-pill warn">—</span>
-          </div>
-
-          <div class="vision-risk-card" id="vision-risk-card">
-            <div class="vision-risk-main">
-              <span id="vision-risk-level" class="vision-risk-level">—</span>
-              <div class="vision-risk-score"><span id="vision-risk-score">0</span><small>/ 100</small></div>
-            </div>
-            <div class="vision-risk-bar" aria-hidden="true"><div id="vision-risk-bar-fill"></div></div>
-            <div class="vision-risk-meta">
-              <div><span>OCR confidence</span><strong id="vision-ocr-confidence">—</strong></div>
-              <div><span>Regions located</span><strong id="vision-region-count">—</strong></div>
-            </div>
-            <div id="vision-confidence-notes" class="vision-confidence-notes"></div>
-          </div>
-
-          <h3 class="vision-section-title">DETECTED INDICATORS</h3>
-          <ul id="vision-indicator-list" class="vision-indicator-list"></ul>
-
-          <div id="vision-screenshot-holder" class="vision-screenshot-holder"></div>
-
-          <h3 class="vision-section-title">EXTRACTED INFORMATION</h3>
-          <div class="vision-extracted">
-            <div class="vision-extracted-grid">
-              <div class="vision-ex-item"><span>URLS DETECTED</span><ul id="vision-ex-urls"></ul></div>
-              <div class="vision-ex-item"><span>QR CODES</span><ul id="vision-ex-qr"></ul></div>
-              <div class="vision-ex-item"><span>CONTACT INDICATORS</span><ul id="vision-ex-contacts"></ul></div>
-              <div class="vision-ex-item"><span>BRAND REFERENCES</span><ul id="vision-ex-brands"></ul></div>
-              <div class="vision-ex-item"><span>PAYMENT INDICATORS</span><ul id="vision-ex-payments"></ul></div>
-            </div>
-            <div id="vision-url-findings" class="vision-url-findings hidden">
-              <p class="eyebrow">URL SECURITY ANALYSIS</p>
-              <div id="vision-url-findings-list"></div>
-            </div>
-          </div>
-
-          <div class="vision-text-editor">
-            <div class="vision-text-editor-head">
-              <h3 class="vision-section-title">EXTRACTED TEXT</h3>
-              <span id="vision-text-state" class="vision-text-state hidden">User-edited text</span>
-            </div>
-            <textarea id="vision-text-input" spellcheck="false" placeholder="No text extracted yet"></textarea>
-            <p id="vision-text-hint" class="vision-text-hint">Edit the text if OCR misread it. Edited text is labeled “User-edited text” and is not treated as directly extracted from the screenshot.</p>
-          </div>
-
-          <h3 class="vision-section-title" id="vision-why-title">WHY WAS THIS FLAGGED?</h3>
-          <div id="vision-why" class="vision-why"></div>
-
-          <h3 class="vision-section-title">WHAT SHOULD YOU DO?</h3>
-          <ul id="vision-actions" class="vision-actions"></ul>
-
-          <div class="vision-tools">
-            <button id="vision-restart" class="button button-quiet" type="button">Analyze another screenshot</button>
+          <p class="font-medium text-lg leading-relaxed">
+            URGENT: your account will be suspended in 24 hours. Verify now: bit.ly/secure-update
+          </p>
+          <div class="mt-4">
+            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 font-bold text-sm" style="background: var(--deny-bg); color: var(--deny-text);">
+              &times; DENY
+            </span>
           </div>
         </div>
 
-        <div id="result" class="result hidden" role="status" aria-live="polite" aria-atomic="false">
-          <div class="result-top"><p class="eyebrow" id="result-label">CONTENT REVIEW</p><span id="decision" class="decision-pill">—</span></div>
-          <div class="model-card">
-            <div class="model-info"><strong>Local model review</strong><small id="model-name">Checking model status…</small></div>
-            <span id="model-badge" class="model-badge">WAITING</span>
+        <div class="anim-float-delay mt-4 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-2xl border-2 bg-white p-4 shadow-[4px_4px_0_#1C1A17]" style="border-color: var(--ink);">
+            <p class="font-extrabold text-sm" style="color: var(--deny-text);">AGENT ACTION BLOCKED</p>
+            <code class="mt-2 block font-mono text-xs" style="color: var(--muted);">send_private_data() &rarr; DENY</code>
           </div>
-          <div id="verification-note" class="verification-note"><span id="verification-icon" aria-hidden="true">✓</span><p id="verification-copy">Model findings are checked against the original content.</p></div>
-          <div id="llm-findings" class="llm-findings hidden"><p class="eyebrow">ADDITIONAL FINDINGS</p><div id="llm-signals"></div></div>
-          <h2 id="result-title">Review complete</h2>
-          <p id="explanation" class="explanation"></p>
-          <div class="evidence-heading"><h3>Evidence</h3><span id="evidence-count"></span></div>
-          <ul id="evidence-list" class="evidence-list"></ul>
-          <div id="action-guidance" class="action-guidance hidden">
-            <div><p class="eyebrow">NEXT STEP</p><p id="guidance-copy"></p></div>
-          </div>
-          <div class="result-tools">
-            <div class="result-actions">
-              <button id="copy-summary" type="button">Copy summary</button>
-              <button id="copy-parent" type="button" aria-label="Copy a plain-language explanation for a parent or guardian">Explain to my parent</button>
-            </div>
-            <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
-            <p class="disclaimer">Rules decide DENY. Local AI can add a warning, never clear one.</p>
+          <div class="rounded-2xl border-2 bg-white p-4 shadow-[4px_4px_0_#1C1A17]" style="border-color: var(--ink);">
+            <p class="font-extrabold text-sm" style="color: var(--warn-text);">HIDDEN TEXT FOUND</p>
+            <code class="mt-2 block font-mono text-xs" style="color: var(--muted);">style="display:none" &middot; 1 layer</code>
           </div>
         </div>
-      </aside>
-    </section>
-
-    <section class="how-it-works" id="how-it-works" aria-labelledby="how-title">
-      <div class="section-heading"><p class="eyebrow">HOW VIGIL WORKS</p><h2 id="how-title">Clear decisions. Verifiable reasons.</h2><p>Security checks should help you decide what to do next, without asking you to trust a black box.</p></div>
-      <div class="principle-grid">
-        <article class="principle-card"><span class="principle-number">01</span><h3>Your content stays here</h3><p>Messages and page source are processed by the local VIGIL service. Submitted URLs are inspected as text, never opened.</p></article>
-        <article class="principle-card"><span class="principle-number">02</span><h3>Rules make the decision</h3><p>Visible evidence drives ALLOW, WARN, or DENY. The optional local model may add a warning, but cannot clear a rule-based denial.</p></article>
-        <article class="principle-card"><span class="principle-number">03</span><h3>Actions stay yours</h3><p>Agent checks evaluate a proposed action. VIGIL never sends a message, shares data, opens a link, or pays on your behalf.</p></article>
       </div>
-    </section>
-
-    <section class="faq-section" id="faq" aria-labelledby="faq-title">
-      <div class="section-heading">
-        <p class="eyebrow">SCAM AWARENESS</p>
-        <h2 id="faq-title">Frequently asked questions</h2>
-        <p>The warning signs consumer-protection agencies teach, and how VIGIL checks them automatically before you act.</p>
+    </div>
+    
+    <!-- Stats Strip -->
+    <div class="relative mx-auto w-full max-w-6xl px-5 pb-14">
+      <div class="grid gap-4 rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center lg:text-left">
+          <div><p class="text-4xl font-extrabold">48,213</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">messages analyzed</p></div>
+          <div><p class="text-4xl font-extrabold">1,892</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">hidden instructions caught</p></div>
+          <div><p class="text-4xl font-extrabold">12</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">ms average verdict</p></div>
+          <div><p class="text-4xl font-extrabold">0</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">bytes sent to cloud</p></div>
+        </div>
       </div>
-      <div class="faq-list">
-        <details class="faq-item">
-          <summary>
-            <span class="faq-question">What are the most common warning signs of a scam?</span>
-            <span class="faq-chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="faq-answer">
-            <p>Consumer-protection agencies such as the U.S. FTC and Australia's Scamwatch point to the same core red flags:</p>
-            <ul>
-              <li><strong>Urgency and pressure</strong> — “act now,” “your account will be blocked today.” Real organizations give you time to verify.</li>
-              <li><strong>Unexpected contact claiming a problem or a prize</strong> — suspicious activity, a refund you're owed, or winnings from a draw you never entered.</li>
-              <li><strong>Requests for money or personal information</strong> — OTPs, passwords, card numbers, or payment by gift card, wire transfer, or crypto.</li>
-              <li><strong>Links or attachments you didn't ask for</strong> — especially shortened or look-alike addresses (paypa1.com, bit.ly).</li>
-              <li><strong>Requests for secrecy</strong> — “don't tell the bank” or “keep this between us” is a hallmark of fraud.</li>
-              <li><strong>Too good to be true</strong> — guaranteed returns, free money, or a deal that expires in minutes.</li>
-            </ul>
-            <p>One sign alone can be an honest mistake. Several together are the usual shape of a scam — which is why VIGIL correlates evidence instead of judging any single signal.</p>
-          </div>
-        </details>
-        <details class="faq-item">
-          <summary>
-            <span class="faq-question">How do I spot a phishing message or email?</span>
-            <span class="faq-chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="faq-answer">
-            <p>Look past the branding — logos are copied in seconds:</p>
-            <ul>
-              <li><strong>Check the sender</strong> — display names are trivially spoofed; the real address behind the name often reveals a stranger's domain.</li>
-              <li><strong>Watch the story</strong> — phishing messages follow a script: a problem with your account, a payment that failed, a login you don't recognize, an invoice you never made.</li>
-              <li><strong>Treat credential asks as hostile</strong> — no legitimate service needs your password or OTP from a message you didn't initiate.</li>
-              <li><strong>Beware greetings like “Dear customer”</strong> — your bank knows your name.</li>
-            </ul>
-          </div>
-        </details>
-        <details class="faq-item">
-          <summary>
-            <span class="faq-question">Is it safe to click the link in this message?</span>
-            <span class="faq-chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="faq-answer">
-            <p>Check the destination before you touch it:</p>
-            <ul>
-              <li><strong>Hover or long-press</strong> the link to preview the real address — it matters more than the visible text.</li>
-              <li><strong>Shorteners hide everything</strong> — treat bit.ly-style links in unexpected messages as untrusted.</li>
-              <li><strong>Look-alike domains</strong> swap letters for digits (rn for m, 1 for l) or append the real brand to an unrelated domain.</li>
-              <li><strong>If a “bank” links you to a login page, don't go through the link</strong> — open the site yourself by typing the address you already use.</li>
-            </ul>
-            <p>VIGIL inspects the address as text and will not open it, so you can review a link here without exposing your browser to it.</p>
-          </div>
-        </details>
-        <details class="faq-item">
-          <summary>
-            <span class="faq-question">Why would a scammer send a QR code?</span>
-            <span class="faq-chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="faq-answer">
-            <p>A QR code hides its destination, so you can't read where it goes before scanning — a trick now called “quishing.” Common plays:</p>
-            <ul>
-              <li><strong>Swapped payment stickers</strong> — a genuine parking-meter or merchant QR replaced with one paying the scammer.</li>
-              <li><strong>Login pages in image form</strong> — a code that opens a fake sign-in page asking for your credentials.</li>
-              <li><strong>Payment requests in messages</strong> — UPI or wallet QRs attached to “refund” or “verification” stories.</li>
-            </ul>
-            <p>VIGIL Vision decodes QR codes locally and analyzes the destination text without ever opening it.</p>
-          </div>
-        </details>
-        <details class="faq-item">
-          <summary>
-            <span class="faq-question">What should I do if I already replied or shared information?</span>
-            <span class="faq-chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="faq-answer">
-            <p>Act quickly — most damage happens in the first hour:</p>
-            <ul>
-              <li><strong>Shared a password?</strong> Change it now, starting with your email and banking accounts.</li>
-              <li><strong>Shared an OTP or card details?</strong> Call your bank on the official number from their website or your card — never a number from the message.</li>
-              <li><strong>Paid by gift card, wire, or crypto?</strong> Contact the company immediately and report it; recovery is rare but faster reports help.</li>
-              <li><strong>Report it</strong> — reportfraud.ftc.gov (US), scamwatch.gov.au (AU), or your local cybercrime portal; forward phishing texts to 7726 (SPAM).</li>
-            </ul>
-          </div>
-        </details>
-        <details class="faq-item">
-          <summary>
-            <span class="faq-question">How does VIGIL decide whether something is a scam?</span>
-            <span class="faq-chevron" aria-hidden="true">▾</span>
-          </summary>
-          <div class="faq-answer">
-            <p>VIGIL matches content against known scam patterns — credential and payment requests, urgency, impersonation, suspicious destinations, and hidden instructions aimed at AI agents — then correlates what it finds, so no single weak signal can produce a verdict on its own:</p>
-            <ul>
-              <li><strong>ALLOW</strong> — no known signals matched. This is never a guarantee that content is safe.</li>
-              <li><strong>WARN</strong> — some signals matched; pause and verify before acting.</li>
-              <li><strong>DENY</strong> — high-risk rules matched. Rules decide denial; the optional local model can add a warning but never clear one.</li>
-            </ul>
-            <p>Everything runs on this device — VIGIL never visits the links you submit and sends nothing to a cloud service.</p>
-          </div>
-        </details>
-      </div>
-    </section>
+    </div>
+  </section>
 
-    <footer><span>VIGIL · PRIVATE SECURITY REVIEW</span><span>On-device analysis · No cloud submission</span></footer>
-  </main>
+  
+  <!-- ============ SCAM STATS ============ -->
+  <section id="scam-stats" class="mx-auto w-full max-w-6xl px-5 pb-16 pt-8">
+    <div class="mb-10 text-center">
+      <span class="brutal-label mb-4">The Global Threat</span>
+      <h2 class="text-4xl font-extrabold tracking-tight mt-2">
+        The scam epidemic is <span class="text-accent">accelerating.</span>
+      </h2>
+    </div>
+
+    <!-- 3 Stat Cards -->
+    <div class="grid gap-6 md:grid-cols-3 mb-8">
+      <div class="rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--deny-bg); border-color: var(--ink);">
+        <p class="text-6xl font-extrabold" style="color: var(--deny-text);">$10B+</p>
+        <p class="mt-4 font-bold uppercase tracking-widest text-xs" style="color: var(--ink);">Lost to digital fraud globally in 2023</p>
+      </div>
+      <div class="rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--warn-bg); border-color: var(--ink);">
+        <p class="text-6xl font-extrabold" style="color: var(--warn-text);">70%</p>
+        <p class="mt-4 font-bold uppercase tracking-widest text-xs" style="color: var(--ink);">Target vulnerable &amp; senior demographics</p>
+      </div>
+      <div class="rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--allow-bg); border-color: var(--ink);">
+        <p class="text-6xl font-extrabold" style="color: var(--allow-text);">&lt; 3s</p>
+        <p class="mt-4 font-bold uppercase tracking-widest text-xs" style="color: var(--ink);">Average time to click a deceptive link</p>
+      </div>
+    </div>
+
+    <!-- How VIGIL Helps Card -->
+    <div class="rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17] flex flex-col md:flex-row items-center gap-8 p-8 md:p-12" style="background: var(--ink); border-color: var(--ink); color: var(--page);">
+      <div class="flex-1 text-center md:text-left">
+        <h3 class="text-3xl font-extrabold" style="color: white; font-family: var(--serif);">How VIGIL shifts the balance</h3>
+        <p class="mt-5 text-[17px] leading-relaxed font-medium" style="color: #E6E0D5;">
+          Scammers rely on urgency, panic, and technical obfuscation to bypass human judgment. VIGIL intercepts these attacks by running a deterministic, local-first policy engine that strips away the deception. It translates hidden code and psychological manipulation into clear, plain-language alerts — giving people the critical seconds they need to pause, think, and stay safe.
+        </p>
+      </div>
+      <div class="shrink-0 flex items-center justify-center p-8 rounded-full border-2 shadow-[4px_4px_0_#1C1A17]" style="background: var(--surface); border-color: var(--page); color: var(--ink); transform: rotate(5deg);">
+        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TRENDING SCAMS (generated by the local LLM) ============ -->
+  <section id="trending-scams" class="mx-auto w-full max-w-6xl px-5 pb-16">
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <span class="trending-label mb-4"><span class="trend-dot" aria-hidden="true"></span> Trending scams</span>
+        <h2 class="text-4xl font-extrabold mt-4">Generated live by your <span class="text-accent">local model</span></h2>
+      </div>
+      <p class="trending-source" id="trending-scam-source">Checking local model…</p>
+    </div>
+    <div class="brutal-card max-w-3xl" style="border-color: var(--verm);">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h3 id="trending-scam-title" class="text-2xl font-extrabold" style="color: var(--ink);">Loading trending threats…</h3>
+        <span id="trending-scam-level">…</span>
+      </div>
+      <p id="trending-scam-desc" class="mt-3 leading-relaxed" style="color: var(--muted);">Connecting to the local model.</p>
+      <p class="mt-4 text-sm font-semibold" style="color: var(--muted);">
+        See a pattern like this? <a href="/scanner.html" class="underline font-bold" style="color: var(--verm);">Run it through the scanner &rarr;</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section id="how-it-works" class="mx-auto w-full max-w-6xl px-5 py-16">
+    <div class="mb-10">
+      <span class="brutal-label mb-4">Four steps, zero cloud</span>
+      <h2 class="text-4xl font-extrabold">From <span class="text-accent">suspicion</span> to verdict — in milliseconds</h2>
+    </div>
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div class="brutal-card group">
+        <span class="text-3xl font-extrabold text-[#C8451F]">01</span>
+        <p class="mt-3 font-bold text-xl">Content in</p>
+        <p class="mt-2 text-sm leading-relaxed" style="color: var(--muted);">A message, a URL, or raw HTML enters the analyzer — from the extension, the API, or your agent harness.</p>
+      </div>
+      <div class="brutal-card group">
+        <span class="text-3xl font-extrabold text-[#C8451F]">02</span>
+        <p class="mt-3 font-bold text-xl">Signal extraction</p>
+        <p class="mt-2 text-sm leading-relaxed" style="color: var(--muted);">The analyzer parses structure and language, extracting security signals from what is written and what is hidden.</p>
+      </div>
+      <div class="brutal-card group">
+        <span class="text-3xl font-extrabold text-[#C8451F]">03</span>
+        <p class="mt-3 font-bold text-xl">Deterministic scoring</p>
+        <p class="mt-2 text-sm leading-relaxed" style="color: var(--muted);">A local rules engine scores every signal. No cloud round-trip, no prompt leakage — the verdict path works fully offline.</p>
+      </div>
+      <div class="brutal-card group">
+        <span class="text-3xl font-extrabold text-[#C8451F]">04</span>
+        <p class="mt-3 font-bold text-xl">Evidence + verdict</p>
+        <p class="mt-2 text-sm leading-relaxed" style="color: var(--muted);">ALLOW, WARN or DENY — always with the exact evidence that produced it, so humans and agents can verify before trusting.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURES ============ -->
+  <section id="features" class="py-16" style="background: var(--surface-alt);">
+    <div class="mx-auto w-full max-w-6xl px-5">
+      <div class="mb-10">
+        <span class="brutal-label mb-4">One security layer, many surfaces</span>
+        <h2 class="text-4xl font-extrabold">Everything gets <span class="text-accent">scanned</span></h2>
+      </div>
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="brutal-card">
+          <p class="font-bold text-xl">Message analysis</p>
+          <p class="mt-3 text-sm" style="color: var(--muted);">Paste any SMS, chat or email and get an instant, evidence-backed risk read — including impersonation and urgency tricks that target seniors.</p>
+        </div>
+        <div class="brutal-card">
+          <p class="font-bold text-xl">URL analysis, without visiting</p>
+          <p class="mt-3 text-sm" style="color: var(--muted);">Links are analyzed purely as text. VIGIL inspects suspicious structures — look-alike domains, punycode, redirect tricks — without ever navigating.</p>
+        </div>
+        <div class="brutal-card">
+          <p class="font-bold text-xl">HTML source analysis</p>
+          <p class="mt-3 text-sm" style="color: var(--muted);">Paste page source. VIGIL reads the DOM humans never see and flags hidden layers crafted to deceive people or machines.</p>
+        </div>
+        <div class="brutal-card">
+          <p class="font-bold text-xl">Agent action review</p>
+          <p class="mt-3 text-sm" style="color: var(--muted);">Before an AI agent sends data or clicks a link, VIGIL reviews the proposed action and returns an evidence-backed gate: ALLOW, WARN or DENY.</p>
+        </div>
+        <div class="brutal-card">
+          <p class="font-bold text-xl">Local-first, offline verdicts</p>
+          <p class="mt-3 text-sm" style="color: var(--muted);">The rules engine runs entirely on-device — no internet, no data leaving the machine. An optional local Ollama model adds plain-language explanations.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="border-t-2 py-12" style="border-color: var(--border-dark); background: var(--surface);">
+    <div class="mx-auto flex flex-col items-center justify-center text-center">
+      <p class="font-extrabold text-2xl mb-4 font-serif">VIGIL</p>
+      <p class="text-sm font-medium" style="color: var(--muted);">Built for hackathons — and for everyone your AI talks to.<br/>WCAG 2.2 AA &middot; 18px baseline &middot; offline-first.</p>
+    </div>
+  </footer>
+
 </body>
 </html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIGIL | Scanner</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
+  <link rel="stylesheet" href="/vision.css">
+  <script src="/vendor/jsQR.js" defer></script>
+  <script src="/vendor/qrcode-generator.js" defer></script>
+  <script src="/vendor/tesseract/tesseract.min.js" defer></script>
+  <script src="/app.js" defer></script>
+  <script src="/vision.js" defer></script>
+  <style>
+    body { background-color: var(--page); color: var(--ink); font-family: var(--sans); }
+    h1, h2, h3, h4, h5, h6 { font-family: var(--serif); }
+    header { background: var(--header-glass) !important; }
+    .nav-active { background: var(--ink); color: var(--nav-active-fg, var(--page)); border-color: var(--ink); box-shadow: 3px 3px 0 var(--border-dark); }
+    .nav-links { font-size: 1.05rem; }
+    .nav-link { padding: 0.45rem 1rem; border-radius: 999px; border: 2px solid transparent; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+    .nav-link:hover { background: var(--nav-hover); color: var(--ink); }
+    .nav-link.nav-active { background: var(--ink); color: var(--nav-active-fg, var(--page)); border-color: var(--ink); box-shadow: 3px 3px 0 var(--border-dark); }
+    /* Panels switch via the hidden attribute (app.js setMode); keep that authoritative. */
+    [hidden] { display: none !important; }
+    .input-mode-vision { border: 1px dashed var(--border-dark); }
+  </style>
+</head>
+<body class="antialiased text-[18px] leading-relaxed min-h-screen flex flex-col">
+
+  <!-- ============ NAV ============ -->
+  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: rgba(243, 239, 230, 0.9);">
+    <nav class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-y-2 px-5 py-4" aria-label="Main">
+      <a href="/" class="inline-flex items-center gap-3 font-extrabold" style="font-size: 1.25em; font-family: var(--serif); color: var(--ink);">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white" style="background: var(--ink);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/></svg>
+        </span>
+        VIGIL
+      </a>
+      <div class="nav-links hidden items-center gap-2 lg:flex font-semibold" style="color: var(--muted);">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/scanner.html" class="nav-link nav-active">Scanner</a>
+        <a href="/agent-guard.html" class="nav-link">Agent Guard</a>
+        <a href="/faqs.html" class="nav-link">FAQ</a>
+      </div>
+      <div class="flex items-center gap-4">
+        <div id="ollama-status" class="local-status offline" role="status" aria-live="polite" aria-atomic="true" title="Checking local model…"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
+      </div>
+    </nav>
+  </header>
+
+  <main class="flex-grow w-full max-w-6xl mx-auto px-5 py-12">
+    <div class="mb-8 text-left">
+      <span class="brutal-label mb-4"><span class="anim-soft-pulse h-2 w-2 rounded-full bg-green-500"></span> try it right now</span>
+      <h2 class="text-4xl font-extrabold tracking-tight mt-2">
+        Feed it something suspicious.<br>
+        <span class="text-accent">Watch it think.</span>
+      </h2>
+      <p class="mt-4 max-w-xl text-lg font-medium" style="color: var(--muted);">
+        This is a live preview of the VIGIL rules engine — the same deterministic logic that powers the extension and the API. Nothing you type leaves this page.
+      </p>
+    </div>
+
+    <div class="overflow-hidden rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
+      <form id="review-form">
+        <!-- Tab Bar -->
+        <div class="flex flex-wrap items-center gap-1 border-b-2 p-3 input-modes" style="border-color: var(--border-dark); background: var(--surface-alt);" role="tablist">
+          <button type="button" class="input-mode active px-5 py-3 rounded-xl font-bold transition-all" data-mode="message">Message</button>
+          <button id="mode-vision" type="button" class="input-mode input-mode-vision px-5 py-3 rounded-xl font-bold transition-all" data-mode="vision" aria-pressed="false">📸 VIGIL Vision</button>
+          <button type="button" class="input-mode px-5 py-3 rounded-xl font-bold transition-all" data-mode="url">URL</button>
+          <button type="button" class="input-mode px-5 py-3 rounded-xl font-bold transition-all" data-mode="html">HTML</button>
+          <div class="ml-auto flex items-center gap-2 pr-2 text-sm font-bold" style="color: var(--allow-text);">
+            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 bg-[#E7F5EE]">
+              <span class="inline-block h-2 w-2 rounded-full bg-[#0B7A4B] anim-soft-pulse"></span> engine online
+            </span>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-0">
+          
+          <!-- Input Side -->
+          <div class="p-6">
+            <div id="vision-panel" class="vision-panel" data-input-panel="vision" hidden>
+              <div class="vision-hero">
+                <p class="eyebrow">VISUAL THREAT ANALYSIS</p>
+                <h3 class="vision-title">VIGIL VISION</h3>
+                <p class="vision-tagline">“See the threat behind the screenshot.”</p>
+                <p class="vision-subjects">Analyze suspicious: Messages • Emails • Websites • QR Codes • Payment Requests</p>
+              </div>
+              <div id="vision-dropzone" class="vision-dropzone" role="button" tabindex="0" aria-label="Upload a screenshot: drag and drop or browse files" aria-describedby="vision-privacy">
+                <span class="vision-drop-icon" aria-hidden="true">📤</span>
+                <p class="vision-drop-main">Drop screenshot here</p>
+                <p class="vision-drop-or">or</p>
+                <button id="vision-browse" class="btn-secondary" type="button">Browse Files</button>
+                <p class="vision-drop-formats">PNG • JPG • JPEG • WEBP</p>
+                <input id="vision-file-input" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+              </div>
+              <div class="vision-demo-row">
+                <button id="vision-demo" class="btn-secondary" type="button">TRY DEMO</button>
+                <span id="vision-demo-note" class="vision-demo-note">Safe synthetic examples — no real accounts or credentials</span>
+              </div>
+              <p id="vision-privacy" class="vision-privacy">🔒 Your screenshot is analyzed for security indicators. Avoid uploading passwords, OTPs or other sensitive credentials.</p>
+              <div id="vision-error" class="vision-error hidden" role="alert"></div>
+            </div>
+
+            <div id="message-panel" class="input-field" data-input-panel="message">
+              <label class="block mb-2 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);" for="content-message">Paste a message</label>
+              <textarea id="content-message" rows="7" class="brutal-input" placeholder="Type or paste anything — a scam SMS, a shady link..."></textarea>
+            </div>
+            
+            <div id="url-panel" class="input-field" data-input-panel="url" hidden>
+              <label class="block mb-2 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);" for="content-url">Website Address</label>
+              <input id="content-url" type="url" class="brutal-input" placeholder="https://example.com" />
+            </div>
+
+            <div id="html-panel" class="input-field" data-input-panel="html" hidden>
+              <label class="block mb-2 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);" for="content-html">HTML Source</label>
+              <textarea id="content-html" rows="7" class="brutal-input" placeholder="Paste raw page source here..."></textarea>
+            </div>
+
+            <div class="mt-6 flex flex-wrap items-center gap-4" id="text-input-actions">
+              <button id="analyze" type="submit" class="btn-primary flex items-center gap-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                <span data-button-label>Scan content</span>
+              </button>
+              <button id="clear-input" type="button" class="btn-secondary">Clear</button>
+            </div>
+
+            <!-- Fake steps pipeline -->
+            <div class="mt-8">
+              <ol class="space-y-3">
+                <li class="flex items-center gap-3 font-semibold text-sm" style="color: var(--muted);">
+                  <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-current">1</span> Signal extraction
+                </li>
+                <li class="flex items-center gap-3 font-semibold text-sm" style="color: var(--muted);">
+                  <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-current">2</span> Hunting hidden instructions
+                </li>
+                <li class="flex items-center gap-3 font-semibold text-sm" style="color: var(--muted);">
+                  <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-current">3</span> Scoring risk
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- Verdict Side -->
+          <div class="border-t-2 md:border-t-0 md:border-l-2 p-6" style="border-color: var(--border-dark); background: var(--surface-alt);">
+            <p class="mb-4 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">Verdict</p>
+
+            <!-- VIGIL Vision status + result (rendered by vision.js) -->
+            <div id="vision-status" class="vision-status hidden" role="status" aria-live="polite">
+              <div class="vision-status-head">
+                <span class="vision-spinner" aria-hidden="true"></span>
+                <p class="eyebrow">VIGIL VISION · ANALYZING</p>
+              </div>
+              <ul id="vision-steps" class="vision-steps"></ul>
+            </div>
+
+            <div id="vision-result" class="vision-result hidden" aria-label="VIGIL Vision security review">
+              <div class="vision-result-top">
+                <div><p class="eyebrow">VIGIL VISION · SECURITY REVIEW</p>
+                  <p class="vision-scenario-tag hidden" id="vision-scenario-tag">DEMO SCENARIO</p>
+                </div>
+                <span id="vision-decision" class="decision-pill warn">—</span>
+              </div>
+
+              <div class="vision-risk-card" id="vision-risk-card">
+                <div class="vision-risk-main">
+                  <span id="vision-risk-level" class="vision-risk-level">—</span>
+                  <div class="vision-risk-score"><span id="vision-risk-score">0</span><small>/ 100</small></div>
+                </div>
+                <div class="vision-risk-bar" aria-hidden="true"><div id="vision-risk-bar-fill"></div></div>
+                <div class="vision-risk-meta">
+                  <div><span>OCR confidence</span><strong id="vision-ocr-confidence">—</strong></div>
+                  <div><span>Regions located</span><strong id="vision-region-count">—</strong></div>
+                </div>
+                <div id="vision-confidence-notes" class="vision-confidence-notes"></div>
+              </div>
+
+              <h3 class="vision-section-title">DETECTED INDICATORS</h3>
+              <ul id="vision-indicator-list" class="vision-indicator-list"></ul>
+
+              <div id="vision-screenshot-holder" class="vision-screenshot-holder"></div>
+
+              <h3 class="vision-section-title">EXTRACTED INFORMATION</h3>
+              <div class="vision-extracted">
+                <div class="vision-extracted-grid">
+                  <div class="vision-ex-item"><span>URLS DETECTED</span><ul id="vision-ex-urls"></ul></div>
+                  <div class="vision-ex-item"><span>QR CODES</span><ul id="vision-ex-qr"></ul></div>
+                  <div class="vision-ex-item"><span>CONTACT INDICATORS</span><ul id="vision-ex-contacts"></ul></div>
+                  <div class="vision-ex-item"><span>BRAND REFERENCES</span><ul id="vision-ex-brands"></ul></div>
+                  <div class="vision-ex-item"><span>PAYMENT INDICATORS</span><ul id="vision-ex-payments"></ul></div>
+                </div>
+                <div id="vision-url-findings" class="vision-url-findings hidden">
+                  <p class="eyebrow">URL SECURITY ANALYSIS</p>
+                  <div id="vision-url-findings-list"></div>
+                </div>
+              </div>
+
+              <div class="vision-text-editor">
+                <div class="vision-text-editor-head">
+                  <h3 class="vision-section-title">EXTRACTED TEXT</h3>
+                  <span id="vision-text-state" class="vision-text-state hidden">User-edited text</span>
+                </div>
+                <textarea id="vision-text-input" spellcheck="false" placeholder="No text extracted yet"></textarea>
+                <p id="vision-text-hint" class="vision-text-hint">Edit the text if OCR misread it. Edited text is labeled “User-edited text” and is not treated as directly extracted from the screenshot.</p>
+              </div>
+
+              <h3 class="vision-section-title" id="vision-why-title">WHY WAS THIS FLAGGED?</h3>
+              <div id="vision-why" class="vision-why"></div>
+
+              <h3 class="vision-section-title">WHAT SHOULD YOU DO?</h3>
+              <ul id="vision-actions" class="vision-actions"></ul>
+
+              <div class="vision-tools">
+                <button id="vision-restart" class="btn-secondary" type="button">Analyze another screenshot</button>
+              </div>
+            </div>
+
+            <div id="empty-state" class="flex flex-col items-center justify-center text-center h-64 rounded-2xl border-2 border-dashed" style="border-color: var(--border-light);">
+              <p class="font-bold text-lg">Waiting for content...</p>
+              <p class="text-sm mt-2 max-w-xs" style="color: var(--muted);">The verdict appears here with full evidence.</p>
+            </div>
+
+            <div id="result" class="hidden">
+              <div class="rounded-2xl border-2 bg-white p-6 shadow-xl" style="border-color: var(--border-dark);">
+                <div class="flex items-center gap-4">
+                  <span class="flex h-12 w-12 items-center justify-center rounded-full" style="background: var(--surface-alt);">
+                    <!-- Icon Placeholder -->
+                    <span class="text-2xl" id="decision-icon">⚠️</span>
+                  </span>
+                  <div>
+                    <p id="result-label" class="font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">CONTENT REVIEW</p>
+                    <p id="decision" class="text-2xl font-extrabold uppercase decision-pill" style="color: var(--ink);">Verdict</p>
+                    <p id="result-title" class="font-bold text-sm" style="color: var(--muted);">Review complete</p>
+                  </div>
+                  <span id="model-status-chip" class="local-status offline ml-auto hidden"><span aria-hidden="true"></span><span class="local-status-label">…</span></span>
+                </div>
+
+                <!-- Risk Meter -->
+                <div class="mt-6">
+                  <div class="mb-2 flex items-center justify-between font-bold text-xs uppercase tracking-widest">
+                    <span>Risk score</span>
+                    <span id="risk-score-text">0/100</span>
+                  </div>
+                  <div class="h-3 overflow-hidden rounded-full bg-gray-200">
+                    <div id="risk-bar" class="h-full rounded-full transition-all duration-700" style="width: 0%; background: var(--ink);"></div>
+                  </div>
+                </div>
+
+                <!-- Local model review: status, independent verification, extra findings -->
+                <div class="model-card hidden" role="status">
+                  <div class="model-info">
+                    <strong>Local model review</strong>
+                    <small id="model-name">Checking model status…</small>
+                  </div>
+                  <span id="model-badge" class="model-badge">WAITING</span>
+                </div>
+                <div id="verification-note" class="verification-note hidden"><span id="verification-icon" aria-hidden="true">✓</span><p id="verification-copy">Model findings are checked against the original content.</p></div>
+                <div id="llm-findings" class="llm-findings hidden"><p>Additional findings</p><div id="llm-signals"></div></div>
+              </div>
+
+              <!-- Evidence -->
+              <div class="mt-6">
+                <p class="mb-3 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">Evidence</p>
+                <ul id="evidence-list" class="space-y-2"></ul>
+                
+                <details id="technical-details" class="mt-4">
+                  <summary class="font-bold text-sm cursor-pointer" style="color: var(--ink);">See detailed findings</summary>
+                  <p id="explanation" class="mt-2 text-sm leading-relaxed" style="color: var(--muted);"></p>
+                </details>
+
+                <div class="result-tools hidden">
+                  <div class="result-actions">
+                    <button id="copy-summary" type="button">Copy technical summary</button>
+                  </div>
+                  <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
+                  <p class="disclaimer">Rules decide DENY. Local AI can add a warning, never clear one.</p>
+                </div>
+
+                <!-- Hidden elements to satisfy app.js legacy code -->
+                <div id="parent-explainer" class="hidden">
+                  <div id="parent-summary"></div>
+                  <div id="parent-action-steps"></div>
+                </div>
+                <button id="share-copy" class="hidden"></button>
+                <a id="share-whatsapp" class="hidden"></a>
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <footer class="border-t-2 py-8 mt-auto" style="border-color: var(--border-dark); background: var(--surface);">
+    <div class="mx-auto flex flex-col items-center justify-center text-center">
+      <p class="text-sm font-medium" style="color: var(--muted);">Built for hackathons — and for everyone your AI talks to.<br/>WCAG 2.2 AA &middot; 18px baseline &middot; offline-first.</p>
+    </div>
+  </footer>
+</body>
+</html>

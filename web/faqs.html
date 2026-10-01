@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIGIL | FAQs</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
+  <style>
+    body { background-color: var(--page); color: var(--ink); font-family: var(--sans); }
+    header { background: var(--header-glass) !important; }
+    .nav-active { background: var(--ink); color: var(--nav-active-fg, var(--page)) !important; border-color: var(--ink); box-shadow: 3px 3px 0 var(--border-dark); }
+    .nav-links { font-size: 1.05rem; }
+    .nav-link { padding: 0.45rem 1rem; border-radius: 999px; border: 2px solid transparent; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+    .nav-link:hover { background: var(--nav-hover); color: var(--ink); }
+    h1, h2, h3 { font-family: var(--serif); }
+    .brutal-accordion {
+      border: 2px solid var(--border-dark);
+      background: var(--surface);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .brutal-accordion summary {
+      padding: 16px 20px;
+      font-weight: 700;
+      font-size: 0.98em;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      outline-color: var(--ink);
+    }
+    .brutal-accordion summary::-webkit-details-marker { display: none; }
+    .brutal-accordion p {
+      padding: 0 20px 20px 52px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-weight: 500;
+    }
+    .brutal-accordion .icon {
+      color: var(--ink);
+    }
+    .brutal-accordion[open] summary .toggle-icon {
+      transform: rotate(45deg);
+    }
+  </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+  <!-- Nav -->
+  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: rgba(243, 239, 230, 0.9);">
+    <nav class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-y-2 px-5 py-4" aria-label="Main">
+      <a href="/" class="inline-flex items-center gap-3 font-extrabold" style="font-size: 1.25em; font-family: var(--serif); color: var(--ink);">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white" style="background: var(--ink);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/></svg>
+        </span>
+        VIGIL
+      </a>
+      <div class="nav-links hidden items-center gap-2 lg:flex font-semibold" style="color: var(--muted);">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/scanner.html" class="nav-link">Scanner</a>
+        <a href="/agent-guard.html" class="nav-link">Agent Guard</a>
+        <a href="/faqs.html" class="nav-link nav-active">FAQ</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
+        <a href="/scanner.html" class="inline-flex min-h-12 items-center gap-2 rounded-2xl px-5 font-bold transition-transform hover:-translate-y-1" style="background: var(--ink); color: var(--page); box-shadow: 3px 3px 0 var(--border-dark);">
+          Launch scanner &rarr;
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="flex-grow mx-auto w-full max-w-4xl px-5 py-16">
+    <h2 class="mb-10 text-left font-extrabold" style="font-size: 1.9em;">
+      Questions, <span class="text-accent">answered plainly</span>
+    </h2>
+
+    <details class="brutal-accordion">
+      <summary>
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          Does VIGIL visit the links it scans?
+        </div>
+        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-extrabold transition-transform toggle-icon" style="background: var(--surface-alt); font-size: 1em;">+</span>
+      </summary>
+      <p>No. URLs are analyzed as text — structure, domain, encoding tricks — without navigating anywhere. That means zero risk of loading malicious payloads, and it works completely offline.</p>
+    </details>
+
+    <details class="brutal-accordion">
+      <summary>
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          What exactly is a hidden instruction attack?
+        </div>
+        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-extrabold transition-transform toggle-icon" style="background: var(--surface-alt); font-size: 1em;">+</span>
+      </summary>
+      <p>It is text on a webpage that humans cannot see (invisible fonts, zero-opacity layers) but AI agents can read. It instructs the agent to leak data, click links, or ignore its owner. VIGIL detects the suppression techniques themselves, so it catches novel payloads too.</p>
+    </details>
+
+    <details class="brutal-accordion">
+      <summary>
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          Does my data leave my device?
+        </div>
+        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-extrabold transition-transform toggle-icon" style="background: var(--surface-alt); font-size: 1em;">+</span>
+      </summary>
+      <p>The rules-based verdict never leaves the machine. The optional explanation layer runs a local Ollama model — also on-device. If the model is missing, VIGIL falls back to a deterministic explanation.</p>
+    </details>
+
+    <details class="brutal-accordion">
+      <summary>
+        <div class="flex items-center gap-3">
+          <svg class="h-5 w-5 icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+          Why is this page so readable?
+        </div>
+        <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-extrabold transition-transform toggle-icon" style="background: var(--surface-alt); font-size: 1em;">+</span>
+      </summary>
+      <p>It is built on accessibility research for aging eyes: 18px baseline text, generous line spacing, left-aligned paragraphs, 48px touch targets, and verdicts that never depend on color alone. Comfort mode adds a warm, glare-free palette.</p>
+    </details>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t-2 py-8 mt-auto" style="border-color: var(--border-dark); background: var(--surface);">
+    <div class="mx-auto flex flex-col items-center justify-center text-center">
+      <p class="text-sm font-medium" style="color: var(--muted);">Built for hackathons — and for everyone your AI talks to.<br/>WCAG 2.2 AA &middot; 18px baseline &middot; offline-first.</p>
+    </div>
+  </footer>
+</body>
+</html>

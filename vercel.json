@@ -10,8 +10,24 @@
       "destination": "/web/index.html"
     },
     {
+      "source": "/scanner.html",
+      "destination": "/web/scanner.html"
+    },
+    {
+      "source": "/agent-guard.html",
+      "destination": "/web/agent-guard.html"
+    },
+    {
+      "source": "/faqs.html",
+      "destination": "/web/faqs.html"
+    },
+    {
       "source": "/app.js",
       "destination": "/web/app.js"
+    },
+    {
+      "source": "/theme.js",
+      "destination": "/web/theme.js"
     },
     {
       "source": "/vision.js",
@@ -20,6 +36,10 @@
     {
       "source": "/style.css",
       "destination": "/web/style.css"
+    },
+    {
+      "source": "/dossier.css",
+      "destination": "/web/dossier.css"
     },
     {
       "source": "/verification.css",
@@ -32,6 +52,18 @@
     {
       "source": "/favicon.svg",
       "destination": "/web/favicon.svg"
+    },
+    {
+      "source": "/vigil-logo.png",
+      "destination": "/web/vigil-logo.png"
+    },
+    {
+      "source": "/vigil-logo-transparent.png",
+      "destination": "/web/vigil-logo-transparent.png"
+    },
+    {
+      "source": "/telegram-qr.png",
+      "destination": "/web/telegram-qr.png"
     },
     {
       "source": "/demo-agent-page",

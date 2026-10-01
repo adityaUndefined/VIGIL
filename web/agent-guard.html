@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIGIL | Agent Guard API</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
+  <script src="/app.js" defer></script>
+  <style>
+    body { background-color: var(--page); color: var(--ink); font-family: var(--sans); }
+    h1, h2, h3, h4, h5, h6 { font-family: var(--serif); }
+    header { background: var(--header-glass) !important; }
+    .nav-active { background: var(--ink); color: var(--nav-active-fg, var(--page)); border-color: var(--ink); box-shadow: 3px 3px 0 var(--border-dark); }
+    .nav-links { font-size: 1.05rem; }
+    .nav-link { padding: 0.45rem 1rem; border-radius: 999px; border: 2px solid transparent; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+    .nav-link:hover { background: var(--nav-hover); color: var(--ink); }
+    .nav-link.nav-active { background: var(--ink); color: var(--nav-active-fg, var(--page)); border-color: var(--ink); box-shadow: 3px 3px 0 var(--border-dark); }
+  </style>
+</head>
+<body class="antialiased text-[18px] leading-relaxed min-h-screen flex flex-col">
+
+  <!-- ============ NAV ============ -->
+  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: rgba(243, 239, 230, 0.9);">
+    <nav class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-y-2 px-5 py-4" aria-label="Main">
+      <a href="/" class="inline-flex items-center gap-3 font-extrabold" style="font-size: 1.25em; font-family: var(--serif); color: var(--ink);">
+        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white" style="background: var(--ink);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 19 6v5c0 4.4-2.8 7.9-7 10-4.2-2.1-7-5.6-7-10V6l7-3Z"/></svg>
+        </span>
+        VIGIL
+      </a>
+      <div class="nav-links hidden items-center gap-2 lg:flex font-semibold" style="color: var(--muted);">
+        <a href="/" class="nav-link">Home</a>
+        <a href="/scanner.html" class="nav-link">Scanner</a>
+        <a href="/agent-guard.html" class="nav-link nav-active">Agent Guard</a>
+        <a href="/faqs.html" class="nav-link">FAQ</a>
+      </div>
+      <div class="flex items-center gap-4">
+        <div id="ollama-status" class="local-status offline" role="status" aria-live="polite" aria-atomic="true" title="Checking local model…"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
+        <a href="/scanner.html" class="inline-flex min-h-12 items-center gap-2 rounded-2xl px-5 font-bold transition-transform hover:-translate-y-1" style="background: var(--ink); color: var(--page); box-shadow: 3px 3px 0 var(--border-dark);">
+          Launch scanner &rarr;
+        </a>
+      </div>
+    </nav>
+  </header>
+
+  <main class="flex-grow w-full max-w-6xl mx-auto px-5 py-12">
+    <div class="mb-8 text-left">
+      <span class="brutal-label mb-4"><span class="anim-soft-pulse h-2 w-2 rounded-full bg-blue-500"></span> API Playground</span>
+      <h2 class="text-4xl font-extrabold tracking-tight mt-2">
+        Guardrails for <span class="text-accent">AI agents</span>.
+      </h2>
+      <p class="mt-4 max-w-xl text-lg font-medium" style="color: var(--muted);">
+        Before an AI agent sends data or clicks a link, VIGIL reviews the proposed action and returns an evidence-backed gate: ALLOW, WARN or DENY.
+      </p>
+    </div>
+
+    <div class="overflow-hidden rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
+      <div class="grid md:grid-cols-2 gap-0">
+        
+        <!-- Input Side -->
+        <div class="p-6">
+          <div id="message-panel" class="input-field active">
+            <label class="block mb-2 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);" for="content-message">Context HTML / Message</label>
+            <textarea id="content-message" rows="9" class="brutal-input font-mono text-sm" placeholder="<html>...</html>"></textarea>
+          </div>
+          
+          <!-- Hidden inputs for app.js legacy compliance -->
+          <div id="url-panel" class="hidden">
+            <input id="content-url" type="url" />
+          </div>
+          <div id="html-panel" class="hidden">
+            <textarea id="content-html"></textarea>
+          </div>
+
+          <div class="mt-6 border-t-2 pt-6" style="border-color: var(--border-light);">
+            <label class="block mb-2 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);" for="action">Proposed Action</label>
+            <div class="flex gap-4">
+              <select id="action" class="brutal-input py-3" style="flex: 1; border-color: var(--ink);">
+                <option value="navigate">Open a link</option>
+                <option value="send_private_data">Send private information</option>
+                <option value="send_credentials">Send credentials or an OTP</option>
+                <option value="make_payment">Make a payment</option>
+                <option value="summarize">Summarize the content</option>
+              </select>
+              <button id="check-action" type="button" class="btn-primary" style="background: var(--ink); color: white;">
+                Check action
+              </button>
+            </div>
+            <p class="mt-3 text-xs font-bold uppercase tracking-widest" style="color: var(--muted);">This is a policy check. VIGIL does not execute the action.</p>
+          </div>
+        </div>
+
+        <!-- Verdict Side -->
+        <div class="border-t-2 md:border-t-0 md:border-l-2 p-6" style="border-color: var(--border-dark); background: var(--surface-alt);">
+          <p class="mb-4 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">API Response</p>
+          
+          <div id="empty-state" class="flex flex-col items-center justify-center text-center h-64 rounded-2xl border-2 border-dashed" style="border-color: var(--border-light);">
+            <p class="font-bold text-lg">Waiting for agent request...</p>
+            <p class="text-sm mt-2 max-w-xs" style="color: var(--muted);">The API payload and decision will appear here.</p>
+          </div>
+
+          <div id="result" class="hidden">
+            <div class="rounded-2xl border-2 bg-white p-6 shadow-xl" style="border-color: var(--border-dark);">
+              <div class="flex items-center gap-4">
+                <span class="flex h-12 w-12 items-center justify-center rounded-full" style="background: var(--surface-alt);">
+                  <span class="text-2xl" id="decision-icon">🛡️</span>
+                </span>
+                <div>
+                  <p id="result-label" class="font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">AGENT ACTION REVIEW</p>
+                  <p id="decision" class="text-2xl font-extrabold uppercase decision-pill" style="color: var(--ink);">Verdict</p>
+                  <p id="result-title" class="font-bold text-sm" style="color: var(--muted);">Agent Guard</p>
+                </div>
+                <span id="model-status-chip" class="local-status offline ml-auto hidden"><span aria-hidden="true"></span><span class="local-status-label">…</span></span>
+              </div>
+
+              <!-- Risk Meter -->
+              <div class="mt-6">
+                <div class="mb-2 flex items-center justify-between font-bold text-xs uppercase tracking-widest">
+                  <span>Risk score</span>
+                  <span id="risk-score-text">0/100</span>
+                </div>
+                <div class="h-3 overflow-hidden rounded-full bg-gray-200">
+                  <div id="risk-bar" class="h-full rounded-full transition-all duration-700" style="width: 0%; background: var(--ink);"></div>
+                </div>
+              </div>
+
+              <!-- Local model review: status, independent verification, extra findings -->
+              <div class="model-card hidden" role="status">
+                <div class="model-info">
+                  <strong>Local model review</strong>
+                  <small id="model-name">Checking model status…</small>
+                </div>
+                <span id="model-badge" class="model-badge">WAITING</span>
+              </div>
+              <div id="verification-note" class="verification-note hidden"><span id="verification-icon" aria-hidden="true">✓</span><p id="verification-copy">Model findings are checked against the original content.</p></div>
+              <div id="llm-findings" class="llm-findings hidden"><p>Additional findings</p><div id="llm-signals"></div></div>
+            </div>
+
+            <!-- Evidence -->
+            <div class="mt-6">
+              <p class="mb-3 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">Evidence</p>
+              <ul id="evidence-list" class="space-y-2"></ul>
+              
+              <details id="technical-details" class="mt-4">
+                <summary class="font-bold text-sm cursor-pointer" style="color: var(--ink);">See detailed findings</summary>
+                <p id="explanation" class="mt-2 text-sm leading-relaxed" style="color: var(--muted);"></p>
+              </details>
+
+              <div class="result-tools hidden">
+                <div class="result-actions">
+                  <button id="copy-summary" type="button">Copy technical summary</button>
+                </div>
+                <span id="copy-status" class="sr-only" role="status" aria-live="polite"></span>
+                <p class="disclaimer">Rules decide DENY. Local AI can add a warning, never clear one.</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Hidden elements for app.js -->
+          <div id="parent-explainer" class="hidden">
+            <div id="parent-summary"></div>
+            <div id="parent-action-steps"></div>
+          </div>
+          <button id="share-copy" class="hidden"></button>
+          <a id="share-whatsapp" class="hidden"></a>
+          
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="border-t-2 py-8 mt-auto" style="border-color: var(--border-dark); background: var(--surface);">
+    <div class="mx-auto flex flex-col items-center justify-center text-center">
+      <p class="text-sm font-medium" style="color: var(--muted);">Built for hackathons — and for everyone your AI talks to.<br/>WCAG 2.2 AA &middot; 18px baseline &middot; offline-first.</p>
+    </div>
+  </footer>
+</body>
+</html>

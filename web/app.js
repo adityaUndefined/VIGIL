@@ -1,3 +1,169 @@
+/* ── Parent Explainer: signal → plain language mapping ── */
+const PARENT_SIGNALS = {
+  sensitive_request: {
+    icon: '🔑', label: 'Asking for your password or code',
+    explain: 'They are asking for a password, OTP, or verification code. Real organisations will never ask for this by message.',
+    tips: [
+      'Never share OTPs, passwords, or PINs through messages — banks and companies will never ask.',
+      'If you already shared something, change your password immediately and enable two-factor authentication.'
+    ]
+  },
+  payment_request: {
+    icon: '💰', label: 'Asking you to send money',
+    explain: 'They want you to send money or make a payment. Scammers often create fake invoices or urgent payment requests.',
+    tips: [
+      'Verify payment requests by calling the person or company directly using a number you already trust.',
+      'If you already sent money, contact your bank immediately — they may be able to reverse the transaction.'
+    ]
+  },
+  urgency: {
+    icon: '⏰', label: 'Rushing you to act quickly',
+    explain: 'They are using urgent language like "immediately" or "your account will be blocked." Scammers rush you so you do not have time to think.',
+    tips: [
+      'Take a breath. Real deadlines come with official letters or app notifications, not surprise messages.',
+      'Call the organisation using a number from their official website — not from this message.'
+    ]
+  },
+  hidden_instruction: {
+    icon: '👻', label: 'Hidden commands found in this page',
+    explain: 'The page contains invisible text designed to secretly control an AI assistant. This is a sophisticated attack technique.',
+    tips: [
+      'Do not paste content from this page into any AI tool or chatbot.',
+      'Leave this page and do not interact with it further.'
+    ]
+  },
+  instruction_text: {
+    icon: '🤖', label: 'Trying to manipulate an AI',
+    explain: 'This content contains commands that attempt to override AI safety rules or extract private information.',
+    tips: [
+      'Do not paste this into any AI assistant — it could trick the AI into revealing your information.',
+      'Report this content if you received it from someone.'
+    ]
+  },
+  link_destination_mismatch: {
+    icon: '🔗', label: 'Link goes to a different website',
+    explain: 'A link in this content claims to go to one website but actually opens a completely different one. This is a classic phishing trick.',
+    tips: [
+      'Never click links in suspicious messages. Instead, open your browser and type the website address yourself.',
+      'Check where a link actually goes by hovering over it (on a computer) before clicking.'
+    ]
+  },
+  url_ip_host: {
+    icon: '🌐', label: 'Uses a number address instead of a website name',
+    explain: 'Instead of a normal website name like "yourbank.com", this link goes to a raw number address. Legitimate organisations do not do this.',
+    tips: ['Do not visit this link. Real companies always use proper website names, not number addresses.']
+  },
+  url_punycode: {
+    icon: '👀', label: 'Website name uses lookalike letters',
+    explain: 'The website name uses special characters that look like English letters but are not. This tricks you into thinking you are visiting a real site.',
+    tips: ['Always type website addresses directly into your browser instead of clicking links in messages.']
+  },
+  url_confusable: {
+    icon: '👀', label: 'Website name uses lookalike letters',
+    explain: 'The website name contains characters that closely resemble Latin letters. This is designed to impersonate a legitimate website.',
+    tips: ['Always type website addresses directly into your browser instead of clicking links in messages.']
+  },
+  url_userinfo: {
+    icon: '⚠️', label: 'Link hides login details',
+    explain: 'This link embeds what looks like login information before the real website address. This is a technique used to disguise malicious links.',
+    tips: ['Do not click this link. Report the message to the sender platform.']
+  },
+  url_insecure_transport: {
+    icon: '🔓', label: 'Unencrypted connection',
+    explain: 'This link uses an unencrypted connection (http instead of https). Information you send could be intercepted.',
+    tips: ['Only enter personal information on websites that show a padlock icon and use https.']
+  },
+  local_llm_signal: {
+    icon: '🔎', label: 'Additional concern found by AI review',
+    explain: 'The local AI model found an additional pattern that may indicate a risk.',
+    tips: ['Verify the content through a trusted channel before acting on it.']
+  }
+};
+
+const PARENT_SUMMARIES = {
+  DENY: '⛔ This is dangerous. Someone is trying to deceive you. Do not respond, do not click any links, and do not share any personal information or money.',
+  WARN: '⚠️ Be careful with this. There are some warning signs. Before doing anything, call the organisation directly using a phone number you already have (not one from this message).',
+  ALLOW: '✅ No obvious warning signs were found. However, no tool can guarantee something is completely safe. If anything feels off, trust your instincts and verify before acting.'
+};
+
+const UNIVERSAL_TIPS = [
+  'When in doubt, search for the organisation\'s official website and contact them directly.',
+  'Never make decisions based on a single message — scammers rely on you not checking.'
+];
+
+function generateParentExplanation(data) {
+  const decision = data.decision || 'ALLOW';
+  const evidence = data.evidence || data.analysis?.evidence || [];
+
+  const detected = new Set();
+  for (const item of evidence) {
+    if (item.severity !== 'info') detected.add(item.type);
+  }
+
+  // Build a natural conversational summary
+  let summary;
+  const actions = [];
+
+  if (decision === 'DENY') {
+    const parts = [];
+    if (detected.has('sensitive_request')) parts.push('asking for your password or verification code');
+    if (detected.has('payment_request')) parts.push('trying to get you to send money');
+    if (detected.has('urgency')) parts.push('using threatening language to rush you');
+    if (detected.has('hidden_instruction') || detected.has('instruction_text')) parts.push('hiding commands designed to trick an AI assistant');
+    if (detected.has('link_destination_mismatch')) parts.push('using a link that pretends to go somewhere safe but actually goes somewhere else');
+    if (detected.has('url_ip_host')) parts.push('using a suspicious number-based web address instead of a real website name');
+    if (detected.has('url_punycode') || detected.has('url_confusable')) parts.push('using lookalike letters in a web address to impersonate a real website');
+
+    if (parts.length === 0) {
+      summary = 'This content has serious warning signs. Do not interact with it — do not reply, click links, or share any information.';
+    } else if (parts.length === 1) {
+      summary = `This content is ${parts[0]}. This is a known scam technique. Do not respond or interact with it.`;
+    } else {
+      const last = parts.pop();
+      summary = `This content is ${parts.join(', ')} and ${last}. These are known scam techniques. Do not respond or interact with it.`;
+    }
+
+    actions.push({ icon: '🚫', text: 'Do not reply, click any links, or share information.' });
+    if (detected.has('sensitive_request')) actions.push({ icon: '🔐', text: 'If you already shared a password or code, change it now and enable two-factor authentication.' });
+    if (detected.has('payment_request')) actions.push({ icon: '🏦', text: 'If you already sent money, contact your bank immediately.' });
+    actions.push({ icon: '📞', text: 'To verify, contact the organisation using a number you already trust — not one from this message.' });
+
+  } else if (decision === 'WARN') {
+    const parts = [];
+    if (detected.has('urgency')) parts.push('uses urgent language');
+    if (detected.has('payment_request')) parts.push('mentions a payment');
+    if (detected.has('url_insecure_transport')) parts.push('includes an insecure link');
+    if (detected.has('url_ip_host')) parts.push('includes a suspicious web address');
+    if (detected.has('url_punycode') || detected.has('url_confusable')) parts.push('uses lookalike letters in a web address');
+
+    if (parts.length === 0) {
+      summary = 'Something about this content needs a closer look. It may be fine, but it is worth double-checking before you act on it.';
+    } else {
+      summary = `This content ${parts.join(' and ')}. It might be legitimate, but these are patterns often used in scams. Take a moment to verify before acting.`;
+    }
+
+    actions.push({ icon: '⏸️', text: 'Pause — do not act on this right away.' });
+    actions.push({ icon: '📞', text: 'Call the person or organisation directly using a number you already have.' });
+
+  } else {
+    summary = 'No obvious warning signs were found. That said, no tool catches everything — if something feels off, trust your instincts.';
+    actions.push({ icon: '👍', text: 'Looks okay, but stay cautious with any unexpected requests.' });
+  }
+
+  return { summary, summaryClass: `parent-${decision.toLowerCase()}`, actions };
+}
+
+function parentExplanationAsText(data) {
+  const info = generateParentExplanation(data);
+  const lines = ['VIGIL Safety Check', '', info.summary, ''];
+  if (info.actions.length) {
+    lines.push('What to do:');
+    for (const a of info.actions) lines.push(`${a.icon} ${a.text}`);
+  }
+  return lines.join('\n');
+}
+
+/* ── App state ── */
 const contentInputs = {
   message: document.querySelector('#content-message'),
   url: document.querySelector('#content-url'),
@@ -30,20 +196,25 @@ function getSubmittedContent() {
 }
 
 function updateCount() {
+  const inputEl = currentInput();
+  if (!inputEl) return;
   const isUrl = activeMode === 'url';
   const maximum = isUrl ? 2048 : 200000;
-  document.querySelector('#char-count').textContent = `${currentInput().value.length.toLocaleString()} / ${maximum.toLocaleString()}`;
-  document.querySelector('#input-guidance').textContent = isUrl
-    ? 'The address is checked as text; VIGIL will not visit the website.'
-    : activeMode === 'html'
-      ? 'HTML is scanned for visible and hidden instructions · Analysis stays on this device'
-      : 'Your message is analyzed on this device · It is not sent to a cloud service';
+  const charCountEl = document.querySelector('#char-count');
+  const inputGuidanceEl = document.querySelector('#input-guidance');
+  if (charCountEl) charCountEl.textContent = `${inputEl.value.length.toLocaleString()} / ${maximum.toLocaleString()}`;
+  if (inputGuidanceEl) {
+      inputGuidanceEl.textContent = isUrl
+        ? 'The address is checked as text; VIGIL will not visit the website.'
+        : activeMode === 'html'
+          ? 'HTML is scanned for visible and hidden instructions · Analysis stays on this device'
+          : 'Your message is analyzed on this device · It is not sent to a cloud service';
+  }
 }
 
 function setMode(mode) {
   if (!Object.hasOwn(contentInputs, mode) || mode === activeMode) return;
   activeMode = mode;
-  if (window.visionModeExit) window.visionModeExit(); // let Vision close cleanly first
   modeButtons.forEach((button) => {
     const selected = button.dataset.mode === mode;
     button.classList.toggle('active', selected);
@@ -61,36 +232,41 @@ function applyTheme(theme, persist = false) {
   const dark = theme === 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   const action = dark ? 'Switch to light theme' : 'Switch to dark theme';
-  themeToggle.setAttribute('aria-pressed', String(dark));
-  themeToggle.setAttribute('aria-label', action);
-  themeToggle.title = action;
-  document.querySelector('meta[name="theme-color"]').content = dark ? '#101713' : '#f3f5f1';
+  if (themeToggle) {
+    themeToggle.setAttribute('aria-pressed', String(dark));
+    themeToggle.setAttribute('aria-label', action);
+    themeToggle.title = action;
+  }
+  // Optional page metadata — the multi-page frontend may not include it.
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) themeMeta.content = dark ? '#171512' : '#f3f5f1';
+  // Toggle icon reflects the target theme (🌙 → switch to dark shown on light).
+  if (themeToggle) themeToggle.textContent = dark ? '☀️' : '🌙';
   if (persist) {
     try { localStorage.setItem('vigil-theme', dark ? 'dark' : 'light'); } catch { /* Theme still works for this page view. */ }
   }
 }
 
-applyTheme(document.documentElement.dataset.theme || 'light');
-themeToggle.addEventListener('click', () => {
-  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true);
-});
-
-window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
-  let hasSavedTheme = false;
-  try { hasSavedTheme = Boolean(localStorage.getItem('vigil-theme')); } catch { /* Follow system when storage is unavailable. */ }
-  if (!hasSavedTheme) applyTheme(event.matches ? 'dark' : 'light');
+// Theme is owned by /theme.js on every page (single source of truth); app.js
+// only refreshes the optional theme-color meta if the theme ever changes here.
+document.addEventListener('vigil-theme-changed', () => {
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.content = document.documentElement.dataset.theme === 'dark' ? '#171512' : '#f3f5f1';
+  }
 });
 
 async function refreshModelStatus() {
   const status = document.querySelector('#ollama-status');
+  if (!status) return;
   const label = status.querySelector('.local-status-label');
+  if (!label) return;
   try {
     const response = await fetch('/api/model');
     const model = await response.json();
     const ready = model.status === 'ready';
     status.className = `local-status ${ready ? 'ready' : 'offline'}`;
-    const provider = model.provider === 'openai' ? 'OPENAI-COMPATIBLE' : 'OLLAMA';
-    label.textContent = ready ? `LOCAL MODEL READY · ${model.model} · ${provider}` : model.status === 'offline'
+    label.textContent = ready ? `LOCAL MODEL READY · ${model.model}` : model.status === 'offline'
       ? 'RULE-BASED REVIEW · MODEL OFFLINE'
       : `RULE-BASED REVIEW · ${model.model} NOT INSTALLED`;
     status.title = ready
@@ -104,61 +280,14 @@ async function refreshModelStatus() {
 }
 refreshModelStatus();
 
-/* --- Anchor navigation: #scanner (VIGIL Vision workbench) + #agent-review -- */
-
-const scannerSection = document.querySelector('#scanner');
-const agentReviewSection = document.querySelector('#agent-review');
-
-function highlightPanel(panel) {
-  if (!panel) return;
-  panel.classList.remove('panel-highlight');
-  void panel.offsetWidth; /* restart the pulse animation */
-  panel.classList.add('panel-highlight');
-  window.setTimeout(() => panel.classList.remove('panel-highlight'), 1800);
-}
-
-function goToScanner(event) {
-  if (event) event.preventDefault();
-  if (history.replaceState) history.replaceState(null, '', '#scanner');
-  if (scannerSection) scannerSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  // Screenshots are VIGIL Vision's job now: land the user directly on it.
-  if (window.visionModeEnter) window.visionModeEnter();
-  const heading = document.querySelector('#input-heading');
-  if (heading) heading.focus({ preventScroll: true });
-  highlightPanel(scannerSection);
-}
-
-function goToAgentReview(event) {
-  if (event) event.preventDefault();
-  if (history.replaceState) history.replaceState(null, '', '#agent-review');
-  if (agentReviewSection) agentReviewSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  const heading = document.querySelector('#agent-review-title');
-  if (heading) heading.focus({ preventScroll: true });
-  highlightPanel(agentReviewSection);
-}
-
-function bindAnchorNav() {
-  const scannerLink = document.querySelector('.topbar-nav a[href="#scanner"]');
-  if (scannerLink) scannerLink.addEventListener('click', goToScanner);
-  const agentLink = document.querySelector('.topbar-nav a[href="#agent-review"]');
-  if (agentLink) agentLink.addEventListener('click', goToAgentReview);
-  window.addEventListener('hashchange', () => {
-    if (location.hash === '#scanner') goToScanner();
-    if (location.hash === '#agent-review') goToAgentReview();
-  });
-  if (location.hash === '#scanner') goToScanner();
-  if (location.hash === '#agent-review') goToAgentReview();
-}
-bindAnchorNav();
-
-modeButtons.forEach((button) => button.addEventListener('click', () => setMode(button.dataset.mode)));
-Object.values(contentInputs).forEach((input) => input.addEventListener('input', () => {
+modeButtons.forEach((button) => button?.addEventListener('click', () => setMode(button.dataset.mode)));
+Object.values(contentInputs).forEach((input) => input?.addEventListener('input', () => {
   if (input === currentInput()) {
     updateCount();
     clearResult();
   }
 }));
-clearButton.addEventListener('click', () => {
+clearButton?.addEventListener('click', () => {
   currentInput().value = '';
   updateCount();
   clearResult();
@@ -168,12 +297,20 @@ updateCount();
 
 function clearResult() {
   analysisGeneration += 1;
-  document.querySelector('#result').classList.add('hidden');
-  document.querySelector('#empty-state').classList.remove('hidden');
+  document.querySelector('#result')?.classList.add('hidden');
+  document.querySelector('#empty-state')?.classList.remove('hidden');
+  document.querySelector('#parent-explainer')?.classList.add('hidden');
+  document.querySelector('.model-card')?.classList.add('hidden');
+  document.querySelector('#verification-note')?.classList.add('hidden');
+  document.querySelector('#llm-findings')?.classList.add('hidden');
+  document.querySelector('.result-tools')?.classList.add('hidden');
+  document.querySelector('#model-status-chip')?.classList.add('hidden');
+  const techDetails = document.querySelector('#technical-details');
+  if (techDetails) techDetails.hidden = true;
 }
-window.clearResult = clearResult; // VIGIL Vision reuses this reset
 
 function setBusy(button, busy, label) {
+  if (!button) return;
   button.disabled = busy;
   button.setAttribute('aria-busy', String(busy));
   button.classList.toggle('is-busy', busy);
@@ -213,96 +350,211 @@ async function pollModelReview(analysisId, generation, label) {
 }
 
 function renderResult(data, label = 'CONTENT ANALYSIS') {
-  document.querySelector('#empty-state').classList.add('hidden');
+  document.querySelector('#empty-state')?.classList.add('hidden');
   const result = document.querySelector('#result');
+  if (!result) return;
   result.classList.remove('hidden');
   result.classList.remove('is-error');
-  document.querySelector('.model-card').classList.remove('hidden');
-  document.querySelector('#verification-note').classList.remove('hidden');
-  document.querySelector('.evidence-heading').classList.remove('hidden');
-  document.querySelector('#evidence-list').classList.remove('hidden');
-  document.querySelector('.result-tools').classList.remove('hidden');
-  document.querySelector('#result-label').textContent = label;
-  const model = data.local_model || data.analysis?.local_model || { status: 'offline', name: 'local model unavailable', signals: [] };
-  const modelProviderLabel = model.provider === 'openai' ? 'Local LLM' : 'Ollama';
-  document.querySelector('#model-name').textContent = `${modelProviderLabel} · ${model.name || 'local model'}`;
+  document.querySelector('#technical-details').hidden = false;
+  document.querySelector('.model-card')?.classList.remove('hidden');
+  document.querySelector('#verification-note')?.classList.remove('hidden');
+  document.querySelector('#evidence-list')?.classList.remove('hidden');
+  document.querySelector('.result-tools')?.classList.remove('hidden');
+  const resultLabelEl = document.querySelector('#result-label');
+  if (resultLabelEl) resultLabelEl.textContent = label;
+  const model = data.local_model || data.analysis?.local_model || { status: 'offline', name: 'Ollama unavailable', signals: [] };
+  const modelNameEl = document.querySelector('#model-name');
+  if (modelNameEl) modelNameEl.textContent = `Ollama · ${model.name || 'local model'}`;
   const modelBadge = document.querySelector('#model-badge');
-  const modelBadgeLabels = { connected: 'CONNECTED', pending: 'CHECKING', offline: 'RULES FALLBACK' };
-  modelBadge.textContent = modelBadgeLabels[model.status] || 'RULES ONLY';
-  modelBadge.className = `model-badge ${model.status === 'connected' ? 'ready' : model.status === 'pending' ? 'pending' : ''}`;
   const verification = model.verification || { status: 'not_run', checked: 0, verified: 0, rejected: 0 };
   const verificationNote = document.querySelector('#verification-note');
   const verificationCopy = document.querySelector('#verification-copy');
   const verificationIcon = document.querySelector('#verification-icon');
-  verificationNote.className = `verification-note ${verification.status}`;
-  if (model.status === 'pending' || verification.status === 'pending') {
-    verificationIcon.textContent = '◌';
-    verificationCopy.textContent = 'Rules verdict is ready. The local model is checking for additional evidence.';
-  } else if (verification.status === 'not_run') {
-    verificationIcon.textContent = '•';
-    verificationCopy.textContent = 'Local model did not respond. The displayed decision uses deterministic rules.';
-  } else if (verification.rejected > 0) {
-    verificationIcon.textContent = '✓';
-    verificationCopy.textContent = `Independent check accepted ${verification.verified} of ${verification.checked} model findings and rejected ${verification.rejected} unsupported claim(s).`;
-  } else if (verification.checked > 0) {
-    verificationIcon.textContent = '✓';
-    verificationCopy.textContent = `Independent check matched all ${verification.verified} model finding(s) to exact source quotes and local category rules.`;
-  } else {
-    verificationIcon.textContent = '✓';
-    verificationCopy.textContent = 'No extra model findings. The rule-based scan still checked the content.';
+  if (modelBadge) {
+    const modelBadgeLabels = { connected: 'CONNECTED', pending: 'CHECKING', offline: 'RULES FALLBACK' };
+    modelBadge.textContent = modelBadgeLabels[model.status] || 'RULES ONLY';
+    modelBadge.className = `model-badge ${model.status === 'connected' ? 'ready' : model.status === 'pending' ? 'pending' : ''}`;
+  }
+  if (verificationNote) verificationNote.className = `verification-note ${verification.status}`;
+  if (verificationIcon && verificationCopy) {
+    if (model.status === 'pending' || verification.status === 'pending') {
+      verificationIcon.textContent = '◌';
+      verificationCopy.textContent = 'Rules verdict is ready. The local model is checking for additional evidence.';
+    } else if (verification.status === 'not_run') {
+      verificationIcon.textContent = '•';
+      verificationCopy.textContent = 'Local model did not respond. The displayed decision uses deterministic rules.';
+    } else if (verification.rejected > 0) {
+      verificationIcon.textContent = '✓';
+      verificationCopy.textContent = `Independent check accepted ${verification.verified} of ${verification.checked} model findings and rejected ${verification.rejected} unsupported claim(s).`;
+    } else if (verification.checked > 0) {
+      verificationIcon.textContent = '✓';
+      verificationCopy.textContent = `Independent check matched all ${verification.verified} model finding(s) to exact source quotes and local category rules.`;
+    } else {
+      verificationIcon.textContent = '✓';
+      verificationCopy.textContent = 'No extra model findings. The rule-based scan still checked the content.';
+    }
+  }
+  // Verdict-side status chip mirrors the nav chip (ready / pending / offline).
+  const modelStatusChip = document.querySelector('#model-status-chip');
+  if (modelStatusChip) {
+    const chipLabels = { connected: 'LOCAL MODEL CHECKED', pending: 'LOCAL MODEL CHECKING', offline: 'RULES FALLBACK' };
+    modelStatusChip.textContent = chipLabels[model.status] || 'RULES ONLY';
+    modelStatusChip.className = `local-status ${model.status === 'connected' ? 'ready' : model.status === 'pending' ? 'pending' : 'offline'} ml-auto`;
   }
   const findings = document.querySelector('#llm-findings');
   const signals = document.querySelector('#llm-signals');
-  signals.replaceChildren();
-  (model.signals || []).forEach((signal) => {
-    const p = document.createElement('p');
-    p.append(document.createTextNode(`${signal.fact}: `));
-    const quote = document.createElement('q');
-    quote.textContent = signal.quote;
-    p.append(quote);
-    signals.append(p);
-  });
-  findings.classList.toggle('hidden', !(model.signals || []).length);
-  const decision = document.querySelector('#decision');
-  decision.textContent = data.decision;
-  decision.className = `decision-pill ${data.decision.toLowerCase()}`;
-  document.querySelector('#result-title').textContent = ({
-    ALLOW: 'No known risk signals', WARN: 'Pause and verify', DENY: 'Do not proceed'
-  })[data.decision] || 'Check result';
+  if (findings && signals) {
+    signals.replaceChildren();
+    (model.signals || []).forEach((signal) => {
+      const p = document.createElement('p');
+      p.append(document.createTextNode(`${signal.fact}: `));
+      const quote = document.createElement('q');
+      quote.textContent = signal.quote;
+      p.append(quote);
+      signals.append(p);
+    });
+    findings.classList.toggle('hidden', !(model.signals || []).length);
+  }
+  const decisionEl = document.querySelector('#decision');
+  if (decisionEl) {
+    decisionEl.textContent = data.decision;
+    decisionEl.className = `decision-pill ${(data.decision || 'ALLOW').toLowerCase()}`;
+  }
+  
+  const scoreRing = document.querySelector('#safety-score-ring');
+  const scoreText = document.querySelector('#safety-score-text');
+  if (scoreRing && scoreText) {
+    let score = 50;
+    let color = '#ccc';
+    if (data.decision === 'ALLOW') { score = 95; color = 'var(--success)'; }
+    else if (data.decision === 'WARN') { score = 45; color = 'var(--warning-dark)'; }
+    else if (data.decision === 'DENY') { score = 10; color = 'var(--danger)'; }
+    scoreText.textContent = score;
+    scoreText.style.color = color;
+    scoreRing.style.stroke = color;
+    // Animation to standard ScamAdviser score
+    requestAnimationFrame(() => {
+        scoreRing.style.strokeDashoffset = 251 - (251 * score / 100);
+    });
+  }
+
+  // Risk meter used by the agent-guard page (safety score, inverted):
+  // DENY shows a high risk number, ALLOW a low one. Backend risk only —
+  // the decision mapping below is presentational.
+  const riskLevel = String(data.risk || data.analysis?.risk || '').toLowerCase();
+  const riskScore = riskLevel === 'high' ? 90 : riskLevel === 'medium' ? 50 : 12;
+  const riskBar = document.querySelector('#risk-bar');
+  const riskText = document.querySelector('#risk-score-text');
+  if (riskBar) {
+    riskBar.style.width = `${riskScore}%`;
+    riskBar.style.background = data.decision === 'DENY' ? 'var(--deny-text, #A8321F)'
+      : data.decision === 'WARN' ? 'var(--warn-text, #7A5200)' : 'var(--allow-text, #1F5B36)';
+  }
+  if (riskText) riskText.textContent = `${riskScore}/100`;
+  const decisionIcon = document.querySelector('#decision-icon');
+  if (decisionIcon) {
+    decisionIcon.textContent = data.decision === 'DENY' ? '🛑' : data.decision === 'WARN' ? '⚠️' : '✅';
+  }
+
+  const titleEl = document.querySelector('#result-title');
+  if (titleEl) {
+    titleEl.textContent = ({
+      ALLOW: 'No known risk signals', WARN: 'Pause and verify', DENY: 'Do not proceed'
+    })[data.decision] || 'Check result';
+  }
+  
   const explanation = data.explanation?.text || data.reason || '';
-  document.querySelector('#explanation').textContent = explanation;
+  const expEl = document.querySelector('#explanation');
+  if (expEl) expEl.textContent = explanation;
+
   const evidence = data.evidence || data.analysis?.evidence || [];
-  document.querySelector('#evidence-count').textContent = `${evidence.length} signal${evidence.length === 1 ? '' : 's'}`;
-  const list = document.querySelector('#evidence-list');
-  list.replaceChildren();
-  evidence.forEach((item) => {
-    const li = document.createElement('li');
-    li.className = item.severity;
-    const fact = document.createElement('span');
-    fact.className = 'evidence-fact';
-    fact.textContent = item.fact;
-    const kind = document.createElement('span');
-    kind.className = 'evidence-type';
-    kind.textContent = item.type.replaceAll('_', ' ');
-    li.append(fact, kind);
-    list.append(li);
-  });
-  const guidance = document.querySelector('#action-guidance');
-  guidance.classList.toggle('hidden', data.decision === 'ALLOW');
-  const nextStep = data.decision === 'DENY'
-    ? 'Stop here. Do not share credentials, private information, or money in response to this content.'
-    : 'Pause and verify through a contact method you already trust before acting.';
-  document.querySelector('#guidance-copy').textContent = nextStep;
+  const countEl = document.querySelector('#evidence-count');
+  if (countEl) countEl.textContent = `${evidence.length} signal${evidence.length === 1 ? '' : 's'}`;
+
+  const posList = document.querySelector('#evidence-positive');
+  const negList = document.querySelector('#evidence-negative');
+  const origList = document.querySelector('#evidence-list');
+  
+  if (posList && negList) {
+    posList.replaceChildren();
+    negList.replaceChildren();
+    evidence.forEach((item) => {
+      const li = document.createElement('li');
+      li.className = item.severity;
+      const fact = document.createElement('span');
+      fact.className = 'evidence-fact';
+      fact.textContent = item.fact;
+      const kind = document.createElement('span');
+      kind.className = 'evidence-type';
+      kind.textContent = item.type.replaceAll('_', ' ');
+      li.append(fact, kind);
+      
+      if (item.severity === 'info' || item.severity === 'success') {
+        posList.append(li);
+      } else {
+        negList.append(li);
+      }
+    });
+  } else if (origList) {
+    // Fallback for agent guard which still has old list
+    origList.replaceChildren();
+    evidence.forEach((item) => {
+      const li = document.createElement('li');
+      li.className = item.severity;
+      const fact = document.createElement('span');
+      fact.className = 'evidence-fact';
+      fact.textContent = item.fact;
+      const kind = document.createElement('span');
+      kind.className = 'evidence-type';
+      kind.textContent = item.type.replaceAll('_', ' ');
+      li.append(fact, kind);
+      origList.append(li);
+    });
+  }
   const copyButton = document.querySelector('#copy-summary');
-  copyButton.textContent = 'Copy summary';
-  copyButton.setAttribute('aria-label', 'Copy this decision and its evidence');
-  copyButton.dataset.defaultLabel = copyButton.textContent;
-  const parentButton = document.querySelector('#copy-parent');
-  parentButton.textContent = 'Explain to my parent';
-  parentButton.dataset.defaultLabel = parentButton.textContent;
+  if (copyButton) {
+    copyButton.textContent = 'Copy technical summary';
+    copyButton.setAttribute('aria-label', 'Copy this decision and its evidence');
+    copyButton.dataset.defaultLabel = copyButton.textContent;
+  }
+
+  /* ── Populate parent explainer ── */
+  const explainer = document.querySelector('#parent-explainer');
+  if (!explainer) return;
+  explainer.classList.remove('hidden');
+  explainer._lastData = data;
+
+  const info = generateParentExplanation(data);
+
+  const summaryEl = document.querySelector('#parent-summary');
+  if (summaryEl) {
+    summaryEl.textContent = info.summary;
+    summaryEl.className = `parent-summary ${info.summaryClass}`;
+  }
+
+  const stepsEl = document.querySelector('#parent-action-steps');
+  if (stepsEl) {
+    stepsEl.replaceChildren();
+    for (const action of info.actions) {
+      const step = document.createElement('div');
+      step.className = 'parent-action-step';
+      step.innerHTML = `<span class="parent-step-icon">${action.icon}</span><div class="parent-step-text">${action.text}</div>`;
+      stepsEl.append(step);
+    }
+  }
+
+  const waLink = document.querySelector('#share-whatsapp');
+  const fullText = parentExplanationAsText(data);
+  try {
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(fullText)}`;
+    if (waLink) {
+      waLink.href = waUrl;
+      waLink.hidden = false;
+    }
+  } catch { if (waLink) waLink.hidden = true; }
 }
 
-reviewForm.addEventListener('submit', async (event) => {
+reviewForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const input = currentInput();
   let submittedContent;
@@ -326,11 +578,11 @@ reviewForm.addEventListener('submit', async (event) => {
     if (generation !== analysisGeneration) return;
     showError(error.message, 'REVIEW ERROR', 'Could not analyze');
   } finally {
-    setBusy(analyzeButton, false, 'Review content');
+    setBusy(analyzeButton, false, 'Analyze content');
   }
 });
 
-checkButton.addEventListener('click', async () => {
+checkButton?.addEventListener('click', async () => {
   const input = currentInput();
   let submittedContent;
   try { submittedContent = getSubmittedContent(); } catch (error) {
@@ -360,7 +612,7 @@ checkButton.addEventListener('click', async () => {
   }
 });
 
-document.querySelector('#copy-summary').addEventListener('click', async (event) => {
+document.querySelector('#copy-summary')?.addEventListener('click', async (event) => {
   const button = event.currentTarget;
   const defaultLabel = button.dataset.defaultLabel || 'Copy summary';
   const copyStatus = document.querySelector('#copy-status');
@@ -389,31 +641,19 @@ document.querySelector('#copy-summary').addEventListener('click', async (event) 
   }
 });
 
-document.querySelector('#copy-parent').addEventListener('click', async (event) => {
+document.querySelector('#share-copy')?.addEventListener('click', async (event) => {
   const button = event.currentTarget;
-  const defaultLabel = button.dataset.defaultLabel || 'Explain to my parent';
-  const copyStatus = document.querySelector('#copy-status');
-  const decision = document.querySelector('#decision').textContent;
-  const message = decision === 'DENY'
-    ? 'VIGIL says do not continue. Please do not share an OTP, password, private information, or money in response. Contact the organization using details you already trust.'
-    : decision === 'WARN'
-      ? 'VIGIL found something that needs a closer look. Please pause and verify with the organization using contact details you already trust before clicking, replying, or paying.'
-      : 'VIGIL did not find known warning signs, but that does not prove this message or website is safe. Check the sender and link before acting.';
+  const explainer = document.querySelector('#parent-explainer');
+  const data = explainer._lastData;
+  if (!data) return;
+  const text = parentExplanationAsText(data);
   try {
-    await copyPlainText(message);
-    button.textContent = 'Copied for sharing';
-    copyStatus.textContent = 'The plain-language explanation is copied and ready to share.';
-    setTimeout(() => {
-      button.textContent = defaultLabel;
-      copyStatus.textContent = '';
-    }, 1600);
+    await copyPlainText(text);
+    button.textContent = '✓ Copied';
+    setTimeout(() => { button.textContent = '📋 Copy explanation'; }, 1600);
   } catch {
-    button.textContent = 'Select the explanation above';
-    copyStatus.textContent = 'Clipboard access was unavailable. The plain-language explanation remains available in the page.';
-    setTimeout(() => {
-      button.textContent = defaultLabel;
-      copyStatus.textContent = '';
-    }, 2200);
+    button.textContent = 'Select text above';
+    setTimeout(() => { button.textContent = '📋 Copy explanation'; }, 2200);
   }
 });
 
@@ -437,22 +677,58 @@ async function copyPlainText(text) {
 }
 
 function showError(message, label = 'REVIEW ERROR', title = 'Could not analyze') {
-  document.querySelector('#empty-state').classList.add('hidden');
+  document.querySelector('#empty-state')?.classList.add('hidden');
   const result = document.querySelector('#result');
+  if (!result) return;
   result.classList.remove('hidden');
   result.classList.add('is-error');
-  document.querySelector('.model-card').classList.add('hidden');
-  document.querySelector('#verification-note').classList.add('hidden');
-  document.querySelector('#llm-findings').classList.add('hidden');
-  document.querySelector('.evidence-heading').classList.add('hidden');
-  document.querySelector('#evidence-list').classList.add('hidden');
-  document.querySelector('.result-tools').classList.add('hidden');
-  document.querySelector('#result-label').textContent = label;
-  document.querySelector('#decision').textContent = 'CHECK';
-  document.querySelector('#decision').className = 'decision-pill warn';
+  document.querySelector('#parent-explainer')?.classList.add('hidden');
+  document.querySelector('#technical-details').hidden = true;
+  document.querySelector('.model-card')?.classList.add('hidden');
+  document.querySelector('#verification-note')?.classList.add('hidden');
+  document.querySelector('#llm-findings')?.classList.add('hidden');
+  document.querySelector('#evidence-list')?.classList.add('hidden');
+  document.querySelector('.result-tools')?.classList.add('hidden');
+  document.querySelector('#model-status-chip')?.classList.add('hidden');
+  const errorLabelEl = document.querySelector('#result-label');
+  if (errorLabelEl) errorLabelEl.textContent = label;
+  const decisionEl = document.querySelector('#decision');
+  if (decisionEl) {
+    decisionEl.textContent = 'CHECK';
+    decisionEl.className = 'decision-pill warn';
+  }
   document.querySelector('#result-title').textContent = title;
   document.querySelector('#explanation').textContent = message;
-  document.querySelector('#evidence-list').replaceChildren();
-  document.querySelector('#evidence-count').textContent = '';
-  document.querySelector('#action-guidance').classList.add('hidden');
+  document.querySelector('#evidence-list')?.replaceChildren();
+  const errorCountEl = document.querySelector('#evidence-count');
+  if (errorCountEl) errorCountEl.textContent = '';
 }
+
+
+async function loadTrendingScam() {
+  const title = document.getElementById('trending-scam-title');
+  const desc = document.getElementById('trending-scam-desc');
+  const level = document.getElementById('trending-scam-level');
+  if (!title) return;
+  const source = document.getElementById('trending-scam-source');
+  const setSource = (data) => {
+    if (!source) return;
+    source.textContent = data?.source === 'model'
+      ? `Generated live by the local model (${data.model || 'local LLM'})`
+      : 'Offline example · start Ollama to generate live threats';
+  };
+  try {
+    const res = await fetch('/api/trending');
+    const data = await res.json();
+    title.textContent = data.title || 'Unknown Threat';
+    desc.textContent = data.description || 'Could not load threat description.';
+    level.textContent = 'Threat Level: ' + (data.threat_level || 'Unknown');
+    setSource(data);
+  } catch (e) {
+    title.textContent = 'Delivery Fee Scam';
+    desc.textContent = 'Scammers are sending SMS messages claiming a package is held due to an unpaid shipping fee. Clicking the link leads to a fake courier site designed to steal your credit card details.';
+    level.textContent = 'Threat Level: High';
+    setSource(null);
+  }
+}
+loadTrendingScam();
