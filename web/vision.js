@@ -749,6 +749,8 @@
     const decisionPill = $('#vision-decision');
     decisionPill.textContent = result.decision;
     decisionPill.className = `decision-pill ${result.decision.toLowerCase()}`;
+    // Drives the verdict hero's color, glyph, and sub-line (vision.css).
+    resultBox.dataset.decision = result.decision.toLowerCase();
     const scenarioTag = $('#vision-scenario-tag');
     if (meta.isDemo) {
       scenarioTag.textContent = `DEMO SCENARIO · ${meta.demoName}`;
@@ -829,6 +831,20 @@
       li.append(title, summary);
       list.append(li);
     });
+
+    // Section count + empty state so "Detected indicators" never renders blank.
+    const indicatorTotal = (result.indicators || []).length + (result.correlated || []).length;
+    const countBadge = $('#vision-indicator-count');
+    if (countBadge) {
+      countBadge.hidden = false;
+      countBadge.textContent = String(indicatorTotal);
+    }
+    if (!indicatorTotal) {
+      const empty = document.createElement('li');
+      empty.className = 'ind-empty';
+      empty.textContent = 'No indicators detected — nothing in this screenshot matched a VIGIL risk pattern.';
+      list.append(empty);
+    }
 
     // Extracted information lists
     fillList('#vision-ex-urls', (result.extracted.urls || []).map((url) => ({

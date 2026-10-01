@@ -165,8 +165,12 @@
             </div>
 
             <div id="vision-result" class="vision-result hidden" aria-label="VIGIL Vision security review">
+              <!-- Verdict hero: tinted per data-decision (set by vision.js) -->
               <div class="vision-result-top">
-                <div><p class="eyebrow">VIGIL VISION · SECURITY REVIEW</p>
+                <span class="vision-verdict-glyph" aria-hidden="true"></span>
+                <div class="vision-verdict-text">
+                  <p class="eyebrow">VIGIL VISION · SECURITY REVIEW</p>
+                  <p class="vision-verdict-sub" aria-hidden="true"></p>
                   <p class="vision-scenario-tag hidden" id="vision-scenario-tag">DEMO SCENARIO</p>
                 </div>
                 <span id="vision-decision" class="decision-pill warn">—</span>
@@ -174,10 +178,14 @@
 
               <div class="vision-risk-card" id="vision-risk-card">
                 <div class="vision-risk-main">
-                  <span id="vision-risk-level" class="vision-risk-level">—</span>
+                  <div class="vision-risk-head">
+                    <span class="vision-risk-caption">RISK SCORE</span>
+                    <span id="vision-risk-level" class="vision-risk-level">—</span>
+                  </div>
                   <div class="vision-risk-score"><span id="vision-risk-score">0</span><small>/ 100</small></div>
                 </div>
                 <div class="vision-risk-bar" aria-hidden="true"><div id="vision-risk-bar-fill"></div></div>
+                <div class="vision-risk-scale" aria-hidden="true"><span>0</span><span>50</span><span>100</span></div>
                 <div class="vision-risk-meta">
                   <div><span>OCR confidence</span><strong id="vision-ocr-confidence">—</strong></div>
                   <div><span>Regions located</span><strong id="vision-region-count">—</strong></div>
@@ -185,9 +193,10 @@
                 <div id="vision-confidence-notes" class="vision-confidence-notes"></div>
               </div>
 
-              <h3 class="vision-section-title">DETECTED INDICATORS</h3>
+              <h3 class="vision-section-title">DETECTED INDICATORS <span class="vision-sec-count" id="vision-indicator-count" hidden>0</span></h3>
               <ul id="vision-indicator-list" class="vision-indicator-list"></ul>
 
+              <h3 class="vision-section-title">SCREENSHOT UNDER REVIEW</h3>
               <div id="vision-screenshot-holder" class="vision-screenshot-holder"></div>
 
               <h3 class="vision-section-title">EXTRACTED INFORMATION</h3>
