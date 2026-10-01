@@ -571,6 +571,73 @@ def review_with_local_model(content: str, result: dict) -> dict:
     return result
 
 
+def generate_trending_scam() -> dict:
+    """Generate one example "trending scam" via the configured local LLM.
+
+    Used by the landing page's awareness section. Generation happens entirely
+    server-side (the key never leaves the backend) and degrades to a fixed,
+    safe example when no model is reachable, so the endpoint always answers.
+    """
+    system = (
+        "You are a cybersecurity expert. Invent a highly realistic, brief "
+        "online scam or phishing attempt that is trending right now. Return "
+        "JSON with 'title' (short), 'description' (2 sentences), and "
+        "'threat_level' (High or Critical)."
+    )
+    try:
+        if LLM_CONFIG["provider"] == "openai":
+            endpoint = LLM_CONFIG["base_url"] + "/chat/completions"
+            request_body = json.dumps({
+                "model": LLM_CONFIG["model"],
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": "Generate one trending scam."},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 120,
+            }).encode("utf-8")
+        else:
+            endpoint = LLM_CONFIG["base_url"] + "/api/chat"
+            request_body = json.dumps({
+                "model": LLM_CONFIG["model"],
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": "Generate one trending scam."},
+                ],
+                "format": "json",
+                "stream": False,
+                "keep_alive": "10m",
+                "options": {"temperature": 0.7, "num_predict": 120},
+            }).encode("utf-8")
+        request = Request(endpoint, data=request_body, headers=_llm_headers(), method="POST")
+        with urlopen(request, timeout=12) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if LLM_CONFIG["provider"] == "openai":
+            choices = payload.get("choices")
+            raw = choices[0].get("message", {}).get("content", "") if isinstance(choices, list) and choices else ""
+        else:
+            message = payload.get("message")
+            raw = message.get("content", "") if isinstance(message, dict) else ""
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict) and parsed.get("title") and parsed.get("description"):
+            parsed["threat_level"] = parsed.get("threat_level") if parsed.get("threat_level") in {"High", "Critical"} else "High"
+            parsed["source"] = "model"
+            parsed["model"] = LLM_CONFIG["model"]
+            return parsed
+    except Exception:
+        pass  # any failure falls through to the static example below
+    return {
+        "title": "Delivery Fee Scam",
+        "description": (
+            "Scammers are sending SMS messages claiming a package is held due "
+            "to an unpaid shipping fee. Clicking the link leads to a fake "
+            "courier site designed to steal your credit card details."
+        ),
+        "threat_level": "High",
+        "source": "fallback",
+    }
+
+
 def local_model_status() -> dict:
     """Probe the configured local LLM endpoint so the UI can show availability."""
     try:
@@ -909,8 +976,20 @@ class Handler(BaseHTTPRequestHandler):
         elif path in ("/", "/index.html"):
             target = WEB / "index.html"
             content_type = "text/html; charset=utf-8"
+        elif path == "/scanner.html":
+            target = WEB / "scanner.html"
+            content_type = "text/html; charset=utf-8"
+        elif path == "/agent-guard.html":
+            target = WEB / "agent-guard.html"
+            content_type = "text/html; charset=utf-8"
+        elif path == "/faqs.html":
+            target = WEB / "faqs.html"
+            content_type = "text/html; charset=utf-8"
         elif path == "/style.css":
             target = WEB / "style.css"
+            content_type = "text/css; charset=utf-8"
+        elif path == "/dossier.css":
+            target = WEB / "dossier.css"
             content_type = "text/css; charset=utf-8"
         elif path == "/verification.css":
             target = WEB / "verification.css"
@@ -918,6 +997,15 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/app.js":
             target = WEB / "app.js"
             content_type = "text/javascript; charset=utf-8"
+        elif path == "/theme.js":
+            target = WEB / "theme.js"
+            content_type = "text/javascript; charset=utf-8"
+        elif path in ("/vigil-logo.png", "/vigil-logo-transparent.png", "/telegram-qr.png", "/favicon.ico"):
+            # Branding images used by the redesigned frontend. favicon.ico maps
+            # onto the transparent logo so browser default requests work.
+            filename = "vigil-logo-transparent.png" if path == "/favicon.ico" else path.lstrip("/")
+            target = WEB / filename
+            content_type = "image/png"
         elif path == "/vision.js":
             target = WEB / "vision.js"
             content_type = "text/javascript; charset=utf-8"
@@ -949,6 +1037,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Cache-Control", "public, max-age=86400")
             self.end_headers()
             self.wfile.write(payload)
+            return
+        elif path == "/api/trending":
+            self._json(200, generate_trending_scam())
             return
         elif path == "/api/health":
             self._json(200, {"ok": True, "app": "VIGIL"})

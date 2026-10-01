@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VIGIL Security</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <a class="skip-link" href="#scan-button">Skip to scan button</a>
+
+  <header class="panel-header">
+    <div class="brand-row">
+      <span class="brand-mark" aria-hidden="true">V</span>
+      <div class="brand-text">
+        <span class="brand-name">VIGIL</span>
+        <span class="brand-sub">AI Security Companion</span>
+      </div>
+      <div class="header-actions">
+        <button id="history-button" class="icon-btn" type="button" aria-label="Scan history" title="Scan history">🕘</button>
+        <button id="settings-button" class="icon-btn" type="button" aria-label="Settings" title="Settings">⚙</button>
+      </div>
+    </div>
+    <div class="status-row" role="status">
+      <span id="backend-dot" class="status-dot offline" aria-hidden="true"></span>
+      <span id="backend-status">Checking VIGIL service…</span>
+    </div>
+  </header>
+
+  <main class="panel-main">
+    <!-- ------------------------------------------------------- HOME VIEW -->
+    <section id="view-home" aria-label="Scan controls">
+      <div class="card main-card">
+        <p class="eyebrow">CURRENT PAGE</p>
+        <h1 id="page-title" class="page-title">Open a page to scan</h1>
+        <p id="page-url" class="page-url">The address of the page you're viewing will appear here.</p>
+        <button id="scan-button" class="btn btn-primary" type="button">Scan This Page</button>
+        <div class="secondary-row">
+          <button id="capture-button" class="btn btn-secondary" type="button">Capture &amp; Scan</button>
+          <button id="paste-button" class="btn btn-secondary" type="button">Analyze Text</button>
+        </div>
+        <p id="home-note" class="home-note">VIGIL analyzes only the content required for the scan you request. Nothing is scanned until you ask.</p>
+      </div>
+
+      <!-- Selected-text handoff (hidden until a selection is scanned) -->
+      <div class="card hidden" id="selected-card">
+        <p class="eyebrow">SELECTED MESSAGE</p>
+        <blockquote id="selected-text" class="selected-quote"></blockquote>
+        <p class="quote-meta" id="selected-source"></p>
+        <button id="selected-rescan" class="btn btn-secondary" type="button">Scan This Selection</button>
+      </div>
+
+      <!-- Text input view (Analyze Text) -->
+      <div class="card hidden" id="text-card">
+        <p class="eyebrow">MESSAGE OR CONTENT</p>
+        <textarea id="text-input" rows="5" placeholder="Paste a message, link, or any text you want VIGIL to check…" aria-label="Text to analyze"></textarea>
+        <div class="secondary-row">
+          <button id="text-analyze" class="btn btn-primary" type="button">Analyze</button>
+          <button id="text-cancel" class="btn btn-ghost" type="button">Cancel</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ----------------------------------------------------- RESULT VIEW -->
+    <section id="view-result" class="hidden" aria-label="Analysis result">
+      <button id="back-button" class="back-link" type="button">← Back</button>
+
+      <div id="loading-card" class="card hidden">
+        <p class="eyebrow">VIGIL ANALYZING</p>
+        <ul id="loading-steps" class="steps"></ul>
+      </div>
+
+      <div id="error-card" class="card hidden" role="alert">
+        <p class="eyebrow">SOMETHING WENT WRONG</p>
+        <p id="error-message" class="error-message"></p>
+        <button id="try-again" class="btn btn-primary" type="button">Try Again</button>
+        <button id="error-back" class="btn btn-ghost" type="button">Back</button>
+      </div>
+
+      <div id="result-card" class="card hidden">
+        <div id="result-scope" class="eyebrow"></div>
+        <p id="result-subject" class="result-subject"></p>
+
+        <div id="risk-banner" class="risk-banner" role="status">
+          <span id="risk-icon" class="risk-icon" aria-hidden="true"></span>
+          <div class="risk-main">
+            <span id="risk-level" class="risk-level"></span>
+            <span id="risk-score" class="risk-score"></span>
+          </div>
+        </div>
+
+        <dl class="confidence-row">
+          <dt>Confidence</dt>
+          <dd id="result-confidence">—</dd>
+        </dl>
+
+        <p id="risk-headline" class="risk-headline"></p>
+
+        <h2 class="section-title">DETECTED INDICATORS</h2>
+        <ul id="indicators" class="indicators"></ul>
+
+        <div id="correlations" class="correlations hidden">
+          <h2 class="section-title">WHY VIGIL FLAGGED THIS</h2>
+          <ul id="correlation-list" class="correlation-list"></ul>
+        </div>
+
+        <div id="safe-summary" class="safe-summary hidden">
+          <h2 class="section-title">CHECKS PERFORMED</h2>
+          <ul id="safe-list" class="safe-list"></ul>
+        </div>
+
+        <p class="risk-footnote">VIGIL flags risk signals. It cannot guarantee any site or message is safe — when in doubt, verify through a trusted channel.</p>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------- HISTORY VIEW -->
+    <section id="view-history" class="hidden" aria-label="Scan history">
+      <button id="history-back" class="back-link" type="button">← Back</button>
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="section-title">SCAN HISTORY</h2>
+          <button id="clear-history" class="btn btn-ghost btn-small" type="button">Clear</button>
+        </div>
+        <p class="history-note">Stored locally on this device. Metadata only (time, source, risk) — never page text or message content.</p>
+        <ul id="history-list" class="history-list"></ul>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------- SETTINGS VIEW -->
+    <section id="view-settings" class="hidden" aria-label="Settings">
+      <button id="settings-back" class="back-link" type="button">← Back</button>
+      <div class="card">
+        <h2 class="section-title">SETTINGS</h2>
+
+        <div class="setting-row">
+          <label class="setting-label" for="setting-page-scanning">
+            Page scanning
+            <span class="setting-desc">Enable the "Scan This Page" button. The page extraction function only runs when you press it.</span>
+          </label>
+          <button id="setting-page-scanning" class="toggle" type="button" role="switch" aria-checked="true" aria-label="Enable page scanning"><span class="knob"></span></button>
+        </div>
+
+        <div class="setting-row">
+          <label class="setting-label" for="setting-history">
+            Scan history
+            <span class="setting-desc">Keep a local, metadata-only record of your recent scans.</span>
+          </label>
+          <button id="setting-history" class="toggle" type="button" role="switch" aria-checked="true" aria-label="Enable scan history"><span class="knob"></span></button>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label">
+            Backend status
+            <span class="setting-desc" id="setting-backend-detail">Not checked yet.</span>
+          </span>
+          <span id="setting-backend-badge" class="backend-badge unknown">Checking</span>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label">
+            API address
+            <span class="setting-desc mono" id="setting-api-url"></span>
+          </span>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label">
+            Site access
+            <span class="setting-desc">VIGIL reads a page only when you start a scan. For pages where automatic injection is blocked, grant access here.</span>
+          </span>
+          <button id="grant-host" class="btn btn-secondary btn-small" type="button">Grant Access…</button>
+        </div>
+
+        <div class="setting-row">
+          <span class="setting-label">
+            VIGIL account
+            <span class="setting-desc">This backend requires no sign-in. Analysis is local to your VIGIL service.</span>
+          </span>
+          <span class="backend-badge ok">Not required</span>
+        </div>
+
+        <p class="privacy-note">VIGIL analyzes only the content required for the scan you request. It never collects passwords, card numbers, tokens, or keystrokes, and history stores metadata only.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="panel-footer">
+    <span>VIGIL Security</span>
+    <span class="footer-dot" aria-hidden="true">·</span>
+    <span>Local analysis · No account required</span>
+  </footer>
+
+  <div id="a11y-announcer" class="visually-hidden" aria-live="polite"></div>
+
+  <script src="../../config/config.js"></script>
+  <script src="../../src/utils/riskFormatter.js"></script>
+  <script src="../../src/services/api.js"></script>
+  <script src="../../src/components/ui.js"></script>
+  <!-- Local OCR + QR engines (vendored; loaded before the vision modules) -->
+  <script src="../../vendor/jsQR.js"></script>
+  <script src="../../vendor/tesseract/tesseract.min.js"></script>
+  <script src="../../src/vision/ocr.js"></script>
+  <script src="../../src/vision/visual.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

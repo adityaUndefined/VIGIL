@@ -206,9 +206,12 @@
     hide(resultBox);
     hide(statusBox);
     clearError();
-    // Text-mode footer/actions were hidden when Vision opened.
-    $('#text-input-footer').hidden = false;
-    $('#text-input-actions').hidden = false;
+    // Text-mode footer/actions were hidden when Vision opened (old single-page
+    // layout only — the multi-page scanner has neither element).
+    const textFooter = $('#text-input-footer');
+    const textActions = $('#text-input-actions');
+    if (textFooter) textFooter.hidden = false;
+    if (textActions) textActions.hidden = false;
     if (window.clearResult) window.clearResult(); // app.js: resets result/empty state
     else { hide($('#result')); show(emptyState); }
     if (targetMode === 'message') restoreMessageMode();

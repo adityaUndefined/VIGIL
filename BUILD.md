@@ -7,7 +7,8 @@ Step-by-step instructions to build, run, and verify every component of VIGIL loc
 | Component | Location | What it is |
 |---|---|---|
 | Analyzer server | `app.py` | Local Python HTTP server — the rules engine + optional Ollama review |
-| Chromium extension | `extension/` | Browser extension to review the current page |
+| Chromium extension | `extension/` | Minimal browser extension to review the current page |
+| **VIGIL Security extension** | `vigil-extension/` | Production MV3 companion: side panel, page/URL/message/screenshot scans, history, settings — see `vigil-extension/README.md` |
 | Web UI | `web/` | Browser frontend (deployed on Vercel) |
 | Serverless API | `api/` | Vercel Python functions backing the web UI (`/api/*`) |
 | Offline verification | `scripts/run_offline_fixtures.py` | Deterministic fixture tests, no network or model required |
@@ -66,12 +67,28 @@ VIGIL_PORT=9000 python3 app.py
 
 ## 2. Load the Chromium Extension
 
-1. Start the local server first (step 1) — the extension talks to `http://127.0.0.1:8000`.
-2. Open `chrome://extensions` in your Chromium browser.
-3. Enable **Developer mode** (toggle, top-right).
-4. Click **Load unpacked**.
-5. Select the `extension/` directory of this repo.
-6. Pin "VIGIL Page Review" to the toolbar. Navigate to any page and click the icon to get an `ALLOW` / `WARN` / `DENY` review.
+Two extensions ship in this repo:
+
+- **`extension/`** — the original minimal page-review popup.
+- **`vigil-extension/`** — the full **VIGIL Security** side-panel extension
+  (Manifest V3): "Scan This Page", URL/message analysis, right-click
+  "Scan with VIGIL", and **Capture & Scan** (VIGIL Vision with local OCR —
+  screenshots never leave the device). It talks to the same analyzer server
+  and needs no extra setup.
+
+### Load VIGIL Security (recommended)
+
+1. Start the local server first (step 1) — it talks to `http://127.0.0.1:8000`.
+2. Open `chrome://extensions` and enable **Developer mode**.
+3. Click **Load unpacked** and select the `vigil-extension/` directory.
+4. Pin **VIGIL Security** and click the icon to open the side panel.
+5. Full instructions (API URL configuration, permissions, privacy, tests):
+   [`vigil-extension/README.md`](vigil-extension/README.md).
+
+### Load the minimal popup extension
+
+1. `chrome://extensions` → **Load unpacked** → select `extension/`.
+2. Pin "VIGIL Page Review" to the toolbar. Navigate to any page and click the icon to get an `ALLOW` / `WARN` / `DENY` review.
 
 ---
 
