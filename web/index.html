@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#F3EFE6">
   <title>VIGIL | Private Security Review</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <!-- Use Tailwind via CDN for the new layout -->
@@ -42,7 +43,7 @@
 <body class="antialiased text-[18px] leading-relaxed min-h-screen">
 
   <!-- ============ NAV ============ -->
-  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: rgba(243, 239, 230, 0.9);">
+  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: var(--header-glass, rgba(243, 239, 230, 0.9));">
     <nav class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-y-2 px-5 py-4" aria-label="Main">
       <a href="/" class="inline-flex items-center gap-3 font-extrabold" style="font-size: 1.25em; font-family: var(--serif); color: var(--ink);">
         <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white" style="background: var(--ink);">
@@ -56,12 +57,12 @@
         <a href="/agent-guard.html" class="nav-link">Agent Guard</a>
         <a href="/faqs.html" class="nav-link">FAQ</a>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="ml-auto flex items-center gap-3">
         <div id="ollama-status" class="local-status offline" role="status" aria-live="polite" aria-atomic="true" title="Checking local model…"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
-        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
         <a href="/scanner.html" class="inline-flex min-h-12 items-center gap-2 rounded-2xl px-5 font-bold text-white transition-transform hover:-translate-y-1" style="background: var(--ink); color: var(--page); box-shadow: 3px 3px 0 var(--border-dark);">
           Launch scanner &rarr;
         </a>
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
       </div>
     </nav>
   </header>
@@ -73,14 +74,14 @@
 
     <div class="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 pb-16 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8 lg:pt-20">
             <div class="text-left">
-        <span class="brutal-label mb-6" style="background: white; border-radius: 999px; border: 2px solid var(--border-light); padding: 6px 20px; text-transform: none; font-family: var(--sans); letter-spacing: normal;">
-          <span class="h-3 w-3 rounded-full" style="background: #2563EB;"></span> 
-          <span class="font-semibold text-gray-800" style="font-size: 1.1em;">AI-Powered Cybersecurity</span>
+        <span class="hero-label brutal-label mb-6" style="background: white; border-radius: 999px; border: 2px solid var(--border-light); padding: 6px 20px; text-transform: none; font-family: var(--sans); letter-spacing: normal;">
+          <span class="h-3 w-3 rounded-full" style="background: #C8451F;"></span> 
+          <span class="hero-label-text font-semibold text-gray-800" style="font-size: 1.1em;">AI-Powered Cybersecurity</span>
         </span>
         
-        <h1 class="font-extrabold leading-tight tracking-tight mt-5" style="font-size: clamp(3rem, 5.5vw, 4.5rem); letter-spacing: -0.03em;">
-          See the <span style="color: #3B82F6;">threat</span><br/>
-          before you click.
+        <h1 class="hero-title font-extrabold leading-tight tracking-tight mt-5" style="font-size: clamp(2.9rem, 5.4vw, 4.4rem); letter-spacing: -0.03em;">
+          See the <span class="hero-accent-word" style="color: #C8451F;">threat</span><br/>
+          <span class="hero-dominant">before you click.</span>
         </h1>
         
         <p class="mt-6 max-w-xl font-medium text-gray-600" style="font-size: 1.15rem; line-height: 1.6;">
@@ -90,35 +91,35 @@
         <!-- Action Cards Row -->
         <div class="mt-10 grid grid-cols-3 gap-4 max-w-lg">
           <!-- Card 1: Message -->
-          <a href="/scanner.html" class="flex flex-col items-start gap-3 rounded-2xl border-2 bg-blue-50/50 p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
-            <div class="rounded-xl p-2.5 flex items-center justify-center" style="background: #3B82F6; color: white;">
+          <a href="/scanner.html" class="action-card action-card-active flex flex-col items-start gap-3 rounded-2xl border-2 bg-blue-50/50 p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
+            <div class="action-card-icon rounded-xl p-2.5 flex items-center justify-center" style="background: #3B82F6; color: white;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
             </div>
             <div>
-              <p class="font-extrabold text-[15px] text-black">Message</p>
-              <p class="font-medium text-[13px] text-gray-500 mt-0.5">Analyze text</p>
+              <p class="action-card-name font-extrabold text-[15px] text-black">Message</p>
+              <p class="action-card-sub font-medium text-[13px] text-gray-500 mt-0.5">Analyze text</p>
             </div>
           </a>
           
           <!-- Card 2: Email (Replaces Screenshot) -->
-          <a href="/scanner.html" class="flex flex-col items-start gap-3 rounded-2xl border-2 bg-white p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
-            <div class="rounded-xl p-2.5 flex items-center justify-center" style="background: white; color: var(--ink); border: 2px solid var(--border-light);">
+          <a href="/scanner.html" class="action-card flex flex-col items-start gap-3 rounded-2xl border-2 bg-white p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
+            <div class="action-card-icon rounded-xl p-2.5 flex items-center justify-center" style="background: white; color: var(--ink); border: 2px solid var(--border-light);">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"></rect><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path></svg>
             </div>
             <div>
-              <p class="font-extrabold text-[15px] text-black">Email</p>
-              <p class="font-medium text-[13px] text-gray-500 mt-0.5">Scan inbox</p>
+              <p class="action-card-name font-extrabold text-[15px] text-black">Email</p>
+              <p class="action-card-sub font-medium text-[13px] text-gray-500 mt-0.5">Scan inbox</p>
             </div>
           </a>
 
           <!-- Card 3: URL -->
-          <a href="/scanner.html" class="flex flex-col items-start gap-3 rounded-2xl border-2 bg-white p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
-            <div class="rounded-xl p-2.5 flex items-center justify-center" style="background: white; color: var(--ink); border: 2px solid var(--border-light);">
+          <a href="/scanner.html" class="action-card flex flex-col items-start gap-3 rounded-2xl border-2 bg-white p-4 transition-transform hover:-translate-y-1" style="border-color: var(--ink); box-shadow: 4px 4px 0 var(--border-dark); text-decoration: none;">
+            <div class="action-card-icon rounded-xl p-2.5 flex items-center justify-center" style="background: white; color: var(--ink); border: 2px solid var(--border-light);">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
             </div>
             <div>
-              <p class="font-extrabold text-[15px] text-black">URL</p>
-              <p class="font-medium text-[13px] text-gray-500 mt-0.5">Check links</p>
+              <p class="action-card-name font-extrabold text-[15px] text-black">URL</p>
+              <p class="action-card-sub font-medium text-[13px] text-gray-500 mt-0.5">Check links</p>
             </div>
           </a>
         </div>
@@ -126,31 +127,31 @@
 
       <!-- Floating Stack (Replaces the React Typing Feed with a static equivalent for the landing page) -->
       <div class="relative mt-8 lg:mt-0">
-        <div class="anim-float rounded-3xl border-2 bg-white p-5 shadow-[5px_5px_0_#1C1A17]" style="border-color: var(--ink);">
+        <div class="console-card anim-float rounded-3xl border-2 bg-white p-5 shadow-[5px_5px_0_#1C1A17]" style="border-color: var(--ink);">
           <div class="mb-3 flex items-center gap-2">
-            <span class="inline-block h-3 w-3 rounded-full bg-red-400"></span>
-            <span class="inline-block h-3 w-3 rounded-full bg-yellow-400"></span>
-            <span class="inline-block h-3 w-3 rounded-full bg-green-400"></span>
-            <span class="ml-2 font-semibold tracking-wider text-xs uppercase" style="color: var(--muted);">live scan feed</span>
+            <span class="console-dot-red inline-block h-3 w-3 rounded-full bg-red-400"></span>
+            <span class="console-dot-amber inline-block h-3 w-3 rounded-full bg-yellow-400"></span>
+            <span class="console-dot-green inline-block h-3 w-3 rounded-full bg-green-400"></span>
+            <span class="console-title ml-2 font-semibold tracking-wider text-xs uppercase" style="color: var(--muted);">live scan feed</span>
           </div>
-          <p class="font-medium text-lg leading-relaxed">
+          <p class="console-text font-medium text-lg leading-relaxed">
             URGENT: your account will be suspended in 24 hours. Verify now: bit.ly/secure-update
           </p>
           <div class="mt-4">
-            <span class="inline-flex items-center gap-2 rounded-full px-3 py-1 font-bold text-sm" style="background: var(--deny-bg); color: var(--deny-text);">
+            <span class="verdict-chip-deny inline-flex items-center gap-2 rounded-full px-3 py-1 font-bold text-sm" style="background: var(--deny-bg); color: var(--deny-text);">
               &times; DENY
             </span>
           </div>
         </div>
 
         <div class="anim-float-delay mt-4 grid gap-4 sm:grid-cols-2">
-          <div class="rounded-2xl border-2 bg-white p-4 shadow-[4px_4px_0_#1C1A17]" style="border-color: var(--ink);">
-            <p class="font-extrabold text-sm" style="color: var(--deny-text);">AGENT ACTION BLOCKED</p>
-            <code class="mt-2 block font-mono text-xs" style="color: var(--muted);">send_private_data() &rarr; DENY</code>
+          <div class="console-mini rounded-2xl border-2 bg-white p-4 shadow-[4px_4px_0_#1C1A17]" style="border-color: var(--ink);">
+            <p class="mini-label-red font-extrabold text-sm" style="color: var(--deny-text);">AGENT ACTION BLOCKED</p>
+            <code class="mini-code mt-2 block font-mono text-xs" style="color: var(--muted);">send_private_data() &rarr; DENY</code>
           </div>
-          <div class="rounded-2xl border-2 bg-white p-4 shadow-[4px_4px_0_#1C1A17]" style="border-color: var(--ink);">
-            <p class="font-extrabold text-sm" style="color: var(--warn-text);">HIDDEN TEXT FOUND</p>
-            <code class="mt-2 block font-mono text-xs" style="color: var(--muted);">style="display:none" &middot; 1 layer</code>
+          <div class="console-mini rounded-2xl border-2 bg-white p-4 shadow-[4px_4px_0_#1C1A17]" style="border-color: var(--ink);">
+            <p class="mini-label-amber font-extrabold text-sm" style="color: var(--warn-text);">HIDDEN TEXT FOUND</p>
+            <code class="mini-code mt-2 block font-mono text-xs" style="color: var(--muted);">style="display:none" &middot; 1 layer</code>
           </div>
         </div>
       </div>
@@ -158,12 +159,12 @@
     
     <!-- Stats Strip -->
     <div class="relative mx-auto w-full max-w-6xl px-5 pb-14">
-      <div class="grid gap-4 rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
+      <div class="stats-strip grid gap-4 rounded-3xl border-2 p-7 shadow-[5px_5px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 text-center lg:text-left">
-          <div><p class="text-4xl font-extrabold">48,213</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">messages analyzed</p></div>
-          <div><p class="text-4xl font-extrabold">1,892</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">hidden instructions caught</p></div>
-          <div><p class="text-4xl font-extrabold">12</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">ms average verdict</p></div>
-          <div><p class="text-4xl font-extrabold">0</p><p class="text-xs font-bold uppercase tracking-widest mt-1" style="color: var(--muted);">bytes sent to cloud</p></div>
+          <div><p class="stat-number text-4xl font-extrabold">48,213</p><p class="stat-label text-[11px] font-bold uppercase tracking-widest mt-1.5" style="color: var(--muted);">messages analyzed</p></div>
+          <div><p class="stat-number text-4xl font-extrabold">1,892</p><p class="stat-label text-[11px] font-bold uppercase tracking-widest mt-1.5" style="color: var(--muted);">hidden instructions caught</p></div>
+          <div><p class="stat-number text-4xl font-extrabold">12</p><p class="stat-label text-[11px] font-bold uppercase tracking-widest mt-1.5" style="color: var(--muted);">ms average verdict</p></div>
+          <div><p class="stat-number text-4xl font-extrabold">0</p><p class="stat-label text-[11px] font-bold uppercase tracking-widest mt-1.5" style="color: var(--muted);">bytes sent to cloud</p></div>
         </div>
       </div>
     </div>
@@ -181,25 +182,25 @@
 
     <!-- 3 Stat Cards -->
     <div class="grid gap-6 md:grid-cols-3 mb-8">
-      <div class="rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--deny-bg); border-color: var(--ink);">
+      <div class="threat-card rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--deny-bg); border-color: var(--ink);">
         <p class="text-6xl font-extrabold" style="color: var(--deny-text);">$10B+</p>
         <p class="mt-4 font-bold uppercase tracking-widest text-xs" style="color: var(--ink);">Lost to digital fraud globally in 2023</p>
       </div>
-      <div class="rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--warn-bg); border-color: var(--ink);">
+      <div class="threat-card rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--warn-bg); border-color: var(--ink);">
         <p class="text-6xl font-extrabold" style="color: var(--warn-text);">70%</p>
         <p class="mt-4 font-bold uppercase tracking-widest text-xs" style="color: var(--ink);">Target vulnerable &amp; senior demographics</p>
       </div>
-      <div class="rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--allow-bg); border-color: var(--ink);">
+      <div class="threat-card rounded-3xl border-2 p-6 shadow-[5px_5px_0_#1C1A17] flex flex-col justify-center items-center text-center transition-transform hover:-translate-y-1" style="background: var(--allow-bg); border-color: var(--ink);">
         <p class="text-6xl font-extrabold" style="color: var(--allow-text);">&lt; 3s</p>
         <p class="mt-4 font-bold uppercase tracking-widest text-xs" style="color: var(--ink);">Average time to click a deceptive link</p>
       </div>
     </div>
 
     <!-- How VIGIL Helps Card -->
-    <div class="rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17] flex flex-col md:flex-row items-center gap-8 p-8 md:p-12" style="background: var(--ink); border-color: var(--ink); color: var(--page);">
+    <div class="balance-card rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17] flex flex-col md:flex-row items-center gap-8 p-8 md:p-12" style="background: var(--ink); border-color: var(--ink); color: var(--page);">
       <div class="flex-1 text-center md:text-left">
-        <h3 class="text-3xl font-extrabold" style="color: white; font-family: var(--serif);">How VIGIL shifts the balance</h3>
-        <p class="mt-5 text-[17px] leading-relaxed font-medium" style="color: #E6E0D5;">
+        <h3 class="balance-title text-3xl font-extrabold" style="color: white; font-family: var(--serif);">How VIGIL shifts the balance</h3>
+        <p class="balance-copy mt-5 text-[17px] leading-relaxed font-medium" style="color: #E6E0D5;">
           Scammers rely on urgency, panic, and technical obfuscation to bypass human judgment. VIGIL intercepts these attacks by running a deterministic, local-first policy engine that strips away the deception. It translates hidden code and psychological manipulation into clear, plain-language alerts — giving people the critical seconds they need to pause, think, and stay safe.
         </p>
       </div>

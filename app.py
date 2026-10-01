@@ -20,7 +20,12 @@ from uuid import uuid4
 
 ROOT = Path(__file__).parent
 WEB = ROOT / "web"
-SERVER_HOST = os.environ.get("VIGIL_HOST", "127.0.0.1")
+SERVER_HOST = os.environ.get("VIGIL_HOST") or (
+    # Managed preview sandboxes inject PORT and probe the container's external
+    # interface, so listen on all interfaces there; plain local runs keep the
+    # safe 127.0.0.1 default (override with VIGIL_HOST=0.0.0.0 if needed).
+    "0.0.0.0" if os.environ.get("PORT") else "127.0.0.1"
+)
 SERVER_PORT = int(os.environ.get("VIGIL_PORT") or os.environ.get("PORT") or "8000")
 MAX_CONTENT_CHARS = 200_000
 MAX_REQUEST_BYTES = 10_000_000
