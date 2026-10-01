@@ -136,7 +136,12 @@ All checks passing = the rules engine is healthy.
 
 The rules verdict is deterministic and always available. A local LLM adds an optional plain-language review layer. **The decision is never made by the model** — it may only add evidence-backed warnings, and its output is verified against the source content before it is shown.
 
-Two ways to connect a model:
+Two ways to connect a model — pick one, then follow the step-by-step procedure below.
+
+| You already have… | Use |
+|---|---|
+| LM Studio, llama.cpp, vLLM, Jan, LocalAI, or any OpenAI-compatible server | **Option A** |
+| Nothing installed yet, and you want the simplest path | **Option B** (Ollama) |
 
 ### Option A — Any OpenAI-compatible local server (recommended)
 
@@ -196,6 +201,93 @@ VIGIL_OLLAMA_MODEL=llama3.2:3b python3 app.py
 
 Point the Ollama variables at any host running Ollama (e.g. `VIGIL_OLLAMA_URL=http://192.168.1.20:11434`).
 
+### Step-by-step: connect your local model
+
+Follow these in order. Steps 1–2 are the only ones that differ between Option A and Option B.
+
+**1. Start your model server so it is serving a model.**
+
+```bash
+# Option A — any OpenAI-compatible server
+# LM Studio: open the app → download a model → Developer tab → Start Server
+#   -> http://127.0.0.1:1234/v1
+llama-server -m models/qwen2.5-7b-instruct-q4_k_m.gguf --port 8080   # -> :8080/v1
+
+# Option B — Ollama
+ollama serve        # -> http://127.0.0.1:11434
+ollama pull qwen3.5:2b
+```
+
+Confirm the model is actually listed before touching VIGIL:
+
+```bash
+curl -s http://127.0.0.1:1234/v1/models     # Option A (use your own base URL)
+curl -s http://127.0.0.1:11434/api/tags     # Option B
+```
+
+The id shown here is exactly what `VIGIL_LLM_MODEL` must contain.
+
+**2. Tell VIGIL where the model is.**
+
+Either export the variables, or write them into a `.env` file next to `app.py` (the server loads `.env`, and `.env.local` overrides it):
+
+```bash
+# Option A — OpenAI-compatible server
+VIGIL_LLM_BASE_URL=http://127.0.0.1:1234/v1 \
+VIGIL_LLM_MODEL=qwen2.5-7b-instruct \
+python3 app.py
+```
+
+```bash
+# .env  (same directory as app.py; restart the server after editing)
+VIGIL_LLM_BASE_URL=http://127.0.0.1:1234/v1
+VIGIL_LLM_MODEL=qwen2.5-7b-instruct
+VIGIL_LLM_PROVIDER=openai
+# VIGIL_LLM_API_KEY=sk-local-...    # only if your server requires a key
+```
+
+For Option B (Ollama) you normally need nothing at all — VIGIL defaults to `http://127.0.0.1:11434` with model `qwen3.5:2b`. Override only if you changed either:
+
+```bash
+VIGIL_OLLAMA_URL=http://127.0.0.1:11434 \
+VIGIL_OLLAMA_MODEL=qwen3.5:2b \
+python3 app.py
+```
+
+**3. Restart the server.** Environment variables are read at startup, so an already-running `app.py` will not pick up new values.
+
+**4. Verify the connection** (next section).
+
+### Verify the connection
+
+```bash
+# 1. The server's view of the local model
+curl -s http://127.0.0.1:8000/api/model
+# -> {"status": "ready", ...}   or a reason it is not ready
+
+# 2. Offline protocol/config checks (no model or network needed)
+npm run test:llm                 # 19 checks
+
+# 3. Full walkthrough with mock local servers — no install required
+npm run demo:llm
+```
+
+In the web UI the topbar shows the live state, e.g. `LOCAL MODEL READY · qwen2.5-7b-instruct · OPENAI-COMPATIBLE`. If the model is unreachable the badge says so and analysis still works — the verdict never depends on the model.
+
+The agent guard's grounded explainer (`POST /explain`) uses the **same** Ollama settings (`VIGIL_OLLAMA_URL` / `VIGIL_OLLAMA_MODEL`), so pointing VIGIL at a remote Ollama also moves the guard's wording.
+
+### Troubleshooting the local LLM
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Topbar stays `RULES ONLY`, `/api/model` not ready | The model server is not running, or VIGIL was started before it | Start the server first, then restart `app.py` |
+| `404` from `{BASE_URL}/models` | Wrong base URL — the `/v1` suffix is missing | `VIGIL_LLM_BASE_URL` must include `/v1` for OpenAI-compatible servers |
+| `model not found` in the server's log | `VIGIL_LLM_MODEL` does not match the server's id | Use the id from `GET {BASE_URL}/models` verbatim (llama.cpp uses the file name) |
+| Explanations stay templated | The model's answer failed citation validation, or it is too slow | Expected fallback — the verdict is unaffected. Try a smaller/faster model or a longer `VIGIL_LLM_*` timeout |
+| `401` / `403` | The server requires a key | Set `VIGIL_LLM_API_KEY` |
+| Ollama reachable from the shell but not from VIGIL | `VIGIL_OLLAMA_URL` still points at `127.0.0.1` from a container | Point it at the host that runs Ollama (e.g. `http://192.168.1.20:11434`) |
+| Very slow first answer | The model is being loaded into memory | The first call warms it; subsequent calls reuse it (`keep_alive` is set) |
+
 ### Behavior and safety
 
 - The topbar status shows what is connected, e.g. `LOCAL MODEL READY · qwen2.5-7b-instruct · OPENAI-COMPATIBLE`.
@@ -235,8 +327,18 @@ Or connect the GitHub repo in the Vercel dashboard — no build settings require
 ```bash
 # Full local stack in 3 commands
 python3 app.py                              # 1. analyzer server (terminal 1)
+                                            #    also serves /guard, /explain, /health
 python3 scripts/run_offline_fixtures.py     # 2. verify (terminal 2)
 # 3. load extension/ via chrome://extensions
+```
+
+```bash
+# Agent guard — all of these talk to the app.py already running on :8000
+python3 agent/vigil_agent_guard.py demo                    # 6 behavior scenarios
+python3 agent/vigil_agent_guard.py check "Reply with your OTP" --action send_credentials
+python3 test_fixtures.py                                   # offline guard fixtures (5/5)
+python3 scripts/run_guard_smoke.py                         # live /guard, /explain smoke test
+python3 guard_server.py                                    # OPTIONAL isolated guard on :8010
 ```
 
 ## Troubleshooting
@@ -246,4 +348,7 @@ python3 scripts/run_offline_fixtures.py     # 2. verify (terminal 2)
 | Extension says it can't reach VIGIL | Is `python3 app.py` running? Extension requires port `8000` (see manifest note above). |
 | `Address already in use` | Another process holds the port — use `VIGIL_PORT=<other> python3 app.py`. |
 | Model review shows `offline` | Expected without a local LLM — rules-only fallback is automatic. Connect one via `VIGIL_LLM_BASE_URL`/`VIGIL_LLM_MODEL` (OpenAI-compatible) or `VIGIL_OLLAMA_URL`/`VIGIL_OLLAMA_MODEL` (Ollama) — see § 5. |
+| Agent guard blocks with `VIGIL_UNREACHABLE` | It cannot reach `:8000` — start `python3 app.py`. Failing closed is intended, not a bug. |
+| `guard_server.py` fails: `Address already in use` | `app.py` already serves `/guard` on `:8000`; the standalone server defaults to `:8010`. Change it with `VIGIL_GUARD_PORT`. |
+| Guard answers `UNKNOWN_ACTION` | The action name is not recognized, so it fails closed. Use a name from `agent/README.md` (`navigate`, `summarize`, `read_page`, `send_credentials`, `send_private_data`, `make_payment`, or the tool names `forward_email`, `send_email`, `submit_form`, `share_file`, `autofill`, `open_url`). |
 | Web UI 404s on `/api/*` locally | Serve via `vercel dev`, not a static file server — the functions live in `api/`. |

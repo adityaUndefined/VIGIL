@@ -12,13 +12,17 @@ set -u
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
-python3 guard_server.py >/tmp/vigil-e2e-guard.log 2>&1 &
+# app.py already serves /guard on :8000; the E2E pins the optional standalone
+# server to :8000 because the guard extension and demo page fetch that URL.
+VIGIL_GUARD_PORT=8000 python3 guard_server.py >/tmp/vigil-e2e-guard.log 2>&1 &
 GUARD_PID=$!
 python3 -m http.server 9000 --bind 127.0.0.1 >/tmp/vigil-e2e-http.log 2>&1 &
 HTTP_PID=$!
 cleanup() { kill $GUARD_PID $HTTP_PID 2>/dev/null || true; wait 2>/dev/null || true; }
 trap cleanup EXIT
 
+# Wait for BOTH servers independently. The guard is often already up (app.py
+# serves /health), so waiting only on it used to race the static server.
 for i in $(seq 1 40); do
   curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1 && break
   sleep 0.25
@@ -26,6 +30,10 @@ done
 if ! curl -sf http://127.0.0.1:8000/health >/dev/null; then
   echo "guard server failed to start:"; cat /tmp/vigil-e2e-guard.log; exit 2
 fi
+for i in $(seq 1 40); do
+  curl -sf -o /dev/null http://127.0.0.1:9000/demo/hijack_demo.html && break
+  sleep 0.25
+done
 if ! curl -sf -o /dev/null http://127.0.0.1:9000/demo/hijack_demo.html; then
   echo "static server failed to start:"; cat /tmp/vigil-e2e-http.log; exit 2
 fi

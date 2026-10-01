@@ -40,6 +40,9 @@ jobs:
       - name: Agent-guard fixtures
         run: python3 test_fixtures.py
 
+      - name: Guard extension fail-closed contract
+        run: node scripts/test_guard_extension.mjs
+
       - name: Coverage
         run: |
           python3 -m pip install --quiet coverage
@@ -48,6 +51,9 @@ jobs:
           coverage run --parallel-mode test_fixtures.py
           coverage combine
           coverage report
+
+      - name: Agent-guard server smoke test
+        run: python3 scripts/run_guard_smoke.py
 
       - name: Refresh coverage badge
         if: github.ref == 'refs/heads/main'

@@ -760,7 +760,14 @@ def guard_action(content: str, action: str, agent_id: str = "") -> dict:
     """
     analysis = analyze_content(content)
     normalized = action.lower()
-    sensitive = normalized in {"send_private_data", "send_credentials", "make_payment"}
+    # Accept both vocabularies: the agent-facing action names used by this gate
+    # and the tool names used by guard.py / the Chromium guard extension, so a
+    # caller is never denied just for naming the same action differently.
+    sensitive = normalized in {
+        "send_private_data", "send_credentials", "make_payment",
+        "send_email", "forward_email", "submit_form", "share_file",
+        "autofill", "open_url",
+    }
     readonly = normalized in {"summarize", "read_page", "navigate"}
     hidden = any(item["type"] == "hidden_instruction" for item in analysis["evidence"])
     redirect = guard_redirect_findings(content)
@@ -1067,6 +1074,11 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json(200, job)
             return
+        elif path == "/health":
+            # Standalone agent-guard health, served by the same process so
+            # guard clients and the extension only need `python3 app.py`.
+            self._json(200, {"ok": True, "service": "vigil-guard"})
+            return
         else:
             self._json(404, {"error": "Not found"})
             return
@@ -1082,6 +1094,26 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(payload)
 
     def do_POST(self) -> None:
+        if self.path in ("/guard", "/explain"):
+            # Standalone agent-guard surface, identical to guard_server.py, so
+            # the Chromium guard extension, agent/guarded.py and the demo pages
+            # work against the default `python3 app.py` on :8000 — no second
+            # server on a clashing port.
+            try:
+                data = self._body()
+            except (ValueError, json.JSONDecodeError) as exc:
+                self._json(400, {"error": str(exc)})
+                return
+            import explain as guard_explainer  # lazy: keeps startup lean
+            if self.path == "/guard":
+                from guard import guard as guard_gate
+                result = guard_gate(data.get("source"), data.get("action"))
+                result["explanation"] = guard_explainer.fallback(result["decision"], result["evidence"])
+                self._json(200, result)
+            else:
+                self._json(200, guard_explainer.explain(
+                    data.get("decision", "ALLOW"), data.get("evidence", [])))
+            return
         if self.path == "/api/vision/analyze":
             try:
                 self._handle_vision()

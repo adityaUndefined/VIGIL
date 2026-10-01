@@ -6,10 +6,18 @@ block card in a closed shadow root that page CSS cannot touch.
 
 ## Install
 
-1. Start the guard server (repo root):
+1. Start VIGIL (repo root). `app.py` already serves `POST /guard`, so no second
+   server is needed:
    ```bash
-   python3 guard_server.py          # http://127.0.0.1:8000
+   python3 app.py                   # http://127.0.0.1:8000 (UI + API + guard)
    ```
+   Want the guard isolated from the analyzer? Run the standalone server on its
+   own port (it defaults to 8010 so it never collides with `app.py`):
+   ```bash
+   python3 guard_server.py          # http://127.0.0.1:8010
+   ```
+   The extension and demo pages fetch `:8000`; if you move the guard, update
+   `GUARD_URL` in `background.js` to the same port.
 2. `chrome://extensions` → enable **Developer mode**.
 3. **Load unpacked** → select this `guard-extension/` folder.
 4. Reload the extension at `chrome://extensions` after every change to
@@ -23,8 +31,11 @@ block card in a closed shadow root that page CSS cannot touch.
   `background.js` via `chrome.runtime.sendMessage`.
 - `background.js` makes the actual `fetch` (service-worker fetch is not subject
   to the page's CORS/mixed-content rules; a content script's would be) and
-  returns the verdict. If the guard is unreachable it answers
-  `WARN / guard_unreachable` so the page can degrade sensibly.
+  returns the verdict. If the guard is unreachable, times out, answers with a
+  non-2xx status, or returns anything that is not a decision object, it
+  synthesises a denial (`DENY / VIGIL_UNREACHABLE`). The extension **fails
+  closed**, exactly like the Python client in `agent/` — a guard that lets
+  actions through when it is down is worse than no guard at all.
 - On `DENY` for a form submit the submit event stays cancelled; otherwise the
   form is marked and re-submitted with `form.requestSubmit()`.
 
@@ -50,8 +61,9 @@ Open `demo/hijack_demo.html` over `http://` (e.g. `python3 -m http.server 9000`
 in the repo root, then `http://127.0.0.1:9000/demo/hijack_demo.html`). Content
 scripts do not run on `file://` pages by default.
 
-- Extension off / guard server down → the naive agent "forwards" (`Forwarded (!)`).
+- Extension off → the naive agent "forwards" (`Forwarded (!)`): the vulnerability the demo illustrates.
 - Extension on + guard running → block card appears and the page shows `BLOCKED by VIGIL`.
+- Extension on + guard **down** → still blocked (`DENY / VIGIL_UNREACHABLE`). The gate fails closed.
 - The form on the hijack page is never processed: DENY cancels the submit.
 - `demo/clean_form.html` is the control: its ordinary form submits normally
   (ALLOW path — the guard does not get in the way of benign pages).
@@ -61,13 +73,12 @@ scripts do not run on `file://` pages by default.
 With Node available:
 
 ```bash
-npm i puppeteer                # or set PUPPETEER_MODULE to an existing install
-npm run guard:e2e              # boots server + demo, drives headless Chrome, 9 checks
+npm i puppeteer                # or set PUPPETEER_MODULE to an existing installnpm run guard:e2e             # boots server + demo, drives headless Chrome, 10 checks
 ```
 
 The E2E verifies: service worker load, hijack flow blocked with block card,
 `/explain` wording swap, hijacked form submit cancelled, clean form allowed,
-and guard-unreachable degradation.
+and that an unreachable guard still blocks (fail closed).
 
 ## Troubleshooting
 
@@ -75,4 +86,4 @@ and guard-unreachable degradation.
 |---|---|
 | Block card never appears | In the page console, `document.documentElement.dataset.vigilContent` should be `"1"`. If undefined: page must be `http(s)://` (not `file://`), the page origin must be covered by `host_permissions`, and the extension must be reloaded after manifest changes. |
 | `sendMessage` returns undefined | The service worker listener is missing `return true`, or `host_permissions` lacks `http://127.0.0.1:8000/*`. |
-| Guard answers `WARN / guard_unreachable` | `python3 guard_server.py` is not running on `:8000`. |
+| Actions blocked with `VIGIL_UNREACHABLE` | The guard is not running on `:8000` — start `python3 app.py`. This is fail-closed by design, not a bug. |

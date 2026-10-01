@@ -43,10 +43,18 @@ MACHINE_TAGS = {
     "unknown_action": "UNKNOWN_ACTION",
 }
 
-# Actions the server-side gate knows. Anything else fails closed in the
-# client without a network round-trip.
-UNKNOWN_ACTION_HINTS = {
-    "send_credentials", "send_private_data", "make_payment", "navigate", "summarize", "read_page",
+# Actions the server-side gate recognizes. Two vocabularies are accepted so a
+# caller is never denied for naming the same action differently: the
+# agent-facing action names, and the tool names used by guard.py and the
+# Chromium guard extension. Anything else fails closed in the client without a
+# network round-trip.
+KNOWN_ACTIONS = {
+    # agent-facing action names
+    "navigate", "summarize", "read_page",
+    # sensitive agent-facing actions
+    "send_credentials", "send_private_data", "make_payment",
+    # tool names used by guard.py / guard-extension
+    "send_email", "forward_email", "submit_form", "share_file", "autofill", "open_url",
 }
 
 
@@ -112,7 +120,7 @@ def check_action(content: str, action: str, base_url: str = "", agent_id: str = 
             f"The configured VIGIL URL is invalid: {url!r}.",
             "connection_refused", normalized, "base URL must start with http:// or https://",
         )
-    if normalized not in UNKNOWN_ACTION_HINTS:
+    if normalized not in KNOWN_ACTIONS:
         return deny(
             f"Unknown action {action!r}; VIGIL fails closed on unrecognized actions.",
             "unknown_action", normalized,
@@ -186,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
 
     check = sub.add_parser("check", help="Ask VIGIL whether an agent action may proceed.")
     check.add_argument("content", help="Message, URL, or HTML the agent intends to act on.")
-    check.add_argument("--action", default="navigate", help=f"One of: {', '.join(sorted(UNKNOWN_ACTION_HINTS))}.")
+    check.add_argument("--action", default="navigate", help=f"One of: {', '.join(sorted(KNOWN_ACTIONS))}.")
     check.add_argument("--base-url", default="", help=f"VIGIL analyzer base URL (default: {DEFAULT_BASE_URL}).")
     check.add_argument("--agent-id", default="", help="Optional identifier of the calling agent.")
     check.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)

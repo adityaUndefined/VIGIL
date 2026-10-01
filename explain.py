@@ -3,14 +3,18 @@
 # page text, never the detail snippets. Output is validated and falls back to
 # deterministic wording on any failure.
 import json
+import os
 import re
 import threading
 import urllib.request
 
 from facts import FACTS, PARENT_ACTION
 
-OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
-MODEL = "qwen3.5:2b"
+# Honour the same variables BUILD.md documents, so pointing VIGIL at a remote
+# or non-default Ollama also moves the guard explainer with it.
+OLLAMA_BASE = (os.environ.get("VIGIL_OLLAMA_URL") or "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_URL = OLLAMA_BASE + "/api/chat"
+MODEL = os.environ.get("VIGIL_OLLAMA_MODEL") or "qwen3.5:2b"
 TIMEOUT = 4.0
 
 SYSTEM = (
