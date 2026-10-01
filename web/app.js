@@ -223,9 +223,17 @@ function setMode(mode) {
   document.querySelectorAll('[data-input-panel]').forEach((panel) => {
     panel.hidden = panel.dataset.inputPanel !== mode;
   });
+  updateActionArea(mode);
   updateCount();
   clearResult();
   currentInput().focus({ preventScroll: true });
+}
+
+// vision.js calls this when it closes VIGIL Vision: activeMode never changed
+// while Vision was open (app.js ignores that mode), so without this sync the
+// next setMode() would early-return against stale state.
+function syncActiveMode(mode) {
+  if (Object.hasOwn(contentInputs, mode)) activeMode = mode;
 }
 
 function applyTheme(theme, persist = false) {
@@ -294,6 +302,47 @@ clearButton?.addEventListener('click', () => {
   currentInput().focus();
 });
 updateCount();
+
+/* ── Tab-aware action bar ──
+ * One container (#text-input-actions) renders the primary action for the
+ * active tab, so the button never disappears on a tab switch. The three text
+ * tabs share the form submit and only its label changes; VIGIL Vision swaps
+ * in its own primary action, which opens the screenshot picker via vision.js. */
+const actionArea = document.querySelector('#text-input-actions');
+const visionUploadButton = document.querySelector('#vision-upload');
+const ACTION_LABELS = {
+  message: 'Scan content',
+  url: 'Check URL',
+  html: 'Scan HTML'
+};
+
+function updateActionArea(mode) {
+  if (!actionArea) return;
+  const visionMode = mode === 'vision';
+  const label = ACTION_LABELS[mode] || ACTION_LABELS.message;
+  actionArea.dataset.actionsFor = visionMode ? 'vision' : mode;
+  if (analyzeButton) {
+    analyzeButton.hidden = visionMode;
+    if (!visionMode) {
+      const labelEl = analyzeButton.querySelector('[data-button-label]');
+      if (labelEl) labelEl.textContent = label;
+      // setBusy() restores this label after a request finishes.
+      analyzeButton.dataset.original = label;
+    }
+  }
+  if (clearButton) clearButton.hidden = visionMode;
+  if (visionUploadButton) visionUploadButton.hidden = !visionMode;
+}
+
+// Initial state for the active tab (Message on load).
+updateActionArea(activeMode);
+
+// Vision tab primary action: open the screenshot picker (vision.js owns the
+// busy guard and the file input itself).
+visionUploadButton?.addEventListener('click', () => {
+  if (typeof window.visionPickScreenshot === 'function') window.visionPickScreenshot();
+  else document.querySelector('#vision-file-input')?.click();
+});
 
 function clearResult() {
   analysisGeneration += 1;

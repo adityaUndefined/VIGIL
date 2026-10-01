@@ -49,9 +49,12 @@
   const $ = (selector) => document.querySelector(selector);
   const modeButton = $('#mode-vision');
   const visionPanel = $('#vision-panel');
+  // Input panels hidden while Vision is open. The action bar
+  // (#text-input-actions) is NEVER hidden — it is re-rendered for the active
+  // tab by app.js (updateActionArea), so its button always stays in place.
   const textPanels = [
     $('#message-panel'), $('#url-panel'), $('#html-panel'),
-    $('#text-input-footer'), $('#text-input-actions')
+    $('#text-input-footer')
   ];
   const dropzone = $('#vision-dropzone');
   const fileInput = $('#vision-file-input');
@@ -96,6 +99,8 @@
     visionPanel.hidden = !visible;
     textPanels.forEach((panel) => { if (panel) panel.hidden = visible; });
     if (visible) {
+      // The action bar keeps its place but switches to Vision's primary action.
+      window.updateActionArea?.('vision');
       hide(emptyState);
       hide($('#result'));
       hide(resultBox);
@@ -108,19 +113,20 @@
     }
   }
 
-  function restoreMessageMode() {
-    // app.js still considers 'message' the active mode (it ignores 'vision'),
-    // so its setMode() early-returns. Restore the message-mode UI here.
+  function restoreTextMode(mode) {
+    // app.js ignores 'vision', so its setMode() early-returns when we leave
+    // Vision for the tab that was already active (its activeMode never
+    // changed). Re-apply that tab's UI — tab state, panels, focus — here.
     document.querySelectorAll('[data-mode]').forEach((button) => {
-      const selected = button.dataset.mode === 'message';
+      const selected = button.dataset.mode === mode;
       button.classList.toggle('active', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
     document.querySelectorAll('[data-input-panel]').forEach((panel) => {
-      panel.hidden = panel.dataset.inputPanel !== 'message';
+      panel.hidden = panel.dataset.inputPanel !== mode;
     });
-    const messageInput = $('#content-message');
-    if (messageInput) messageInput.focus({ preventScroll: true });
+    const input = document.querySelector(`#content-${mode}`);
+    if (input) input.focus({ preventScroll: true });
   }
 
   // app.js can call this first when switching text modes, before its own DOM
@@ -206,20 +212,31 @@
     hide(resultBox);
     hide(statusBox);
     clearError();
-    // Text-mode footer/actions were hidden when Vision opened (old single-page
-    // layout only — the multi-page scanner has neither element).
+    // Text-mode footer was hidden when Vision opened (old single-page layout
+    // only — the multi-page scanner has no such element). The action bar was
+    // never hidden; app.js re-renders it for the tab we are switching to.
     const textFooter = $('#text-input-footer');
-    const textActions = $('#text-input-actions');
     if (textFooter) textFooter.hidden = false;
-    if (textActions) textActions.hidden = false;
+    window.syncActiveMode?.(targetMode); // app.js: activeMode is stale after Vision
+    window.updateActionArea?.(targetMode);
     if (window.clearResult) window.clearResult(); // app.js: resets result/empty state
     else { hide($('#result')); show(emptyState); }
-    if (targetMode === 'message') restoreMessageMode();
+    if (targetMode) restoreTextMode(targetMode);
   }
-  [['mode-message', 'message'], ['mode-url', 'url'], ['mode-html', 'html']].forEach(([id, mode]) => {
-    const button = document.querySelector(`#${id}`);
-    if (button) button.addEventListener('click', () => leaveVision(mode));
+  // Bind by data-mode: the scanner's tab buttons carry no #mode-* ids, so
+  // listening on those ids left leaveVision() unreachable and the action bar
+  // stuck hidden after visiting Vision.
+  document.querySelectorAll('[data-mode]').forEach((button) => {
+    const mode = button.dataset.mode;
+    if (mode === 'vision') return; // entering Vision is handled above
+    button.addEventListener('click', () => leaveVision(mode));
   });
+
+  // Exposed for app.js: the Vision tab's primary action in the shared action
+  // bar opens the screenshot picker, honouring Vision's busy state.
+  window.visionPickScreenshot = () => {
+    if (!state.busy) fileInput.click();
+  };
 
   // Topbar "VIGIL Vision" link and #vision deep link: open Vision mode and
   // land on the workbench (mirrors app.js's #scanner anchor behavior).
@@ -244,7 +261,7 @@
   // Upload interactions
   // ------------------------------------------------------------------
   dropzone.addEventListener('click', (event) => {
-    if (event.target === browseButton) return;
+    if (event.target === browseButton || event.target === fileInput) return;
     if (!state.busy) fileInput.click();
   });
   dropzone.addEventListener('keydown', (event) => {
