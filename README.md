@@ -102,8 +102,8 @@ The Vision tab includes a **TRY DEMO** button that cycles five safe synthetic sc
                 ▼                                          ▼
 ┌───────────────────────────────┐        ┌──────────────────────────────────┐
 │ Vercel (edge + serverless)     │        │ Local analyzer host              │
-│  api/*.py  (Python functions)  │        │  app.py      :8000 (UI + API)    │
-│  static web/ assets            │        │  guard_server.py :8000 (/guard)  │
+│  api/*.py  (Python functions)  │        │  app.py  :8000  UI + API +       │
+│  static web/ assets            │        │    /guard · /explain · /health   │
 └───────────────┬───────────────┘        └───────────────┬──────────────────┘
                 │  same engine, no duplicated scoring     │
                 └───────────────────┬─────────────────────┘
@@ -130,7 +130,7 @@ The Vision tab includes a **TRY DEMO** button that cycles five safe synthetic sc
 | Core engine | `analyze_content`, `analyze_urls`, `policy_decision` | Single source of scoring for every surface |
 | Vision engine | `vision_engine.py` | Screenshot evidence correlation (text + regions + QR) |
 | Hidden-content detector | `detectors/hidden_content.py` | Parse visually suppressed / off-screen / zero-width text |
-| Agent guard | `guard.py`, `guard_server.py` | Deterministic, fail-closed gate for agent actions |
+| Agent guard | `guard.py` (+ `/guard` on `app.py`, optional `guard_server.py`) | Deterministic, fail-closed gate for agent actions |
 | Grounded explainer | `explain.py`, `facts.py` | Optional plain-language wording over fixed fact sentences |
 | Web UI | `web/` | Browser frontend (deployed on Vercel) |
 | Serverless API | `api/` | Vercel Python functions backing the web UI (`/api/*`) |
@@ -214,7 +214,7 @@ ALLOW / WARN / DENY + risk score, WHY breakdown, recommended actions
 | `GET` | `/api/health` | — | `{ "ok": true, "app": "VIGIL" }` |
 | `GET` | `/api/model` | — | Local-model status |
 | `GET` | `/api/analysis/<id>` | — | Background analysis job (in-memory) |
-| `POST` | `/guard` | `{ "source": { "html": string }, "action": { "tool": string, "args": object } }` | Standalone guard verdict (`guard_server.py`) |
+| `POST` | `/guard` | `{ "source": { "html": string }, "action": { "tool": string, "args": object } }` | Standalone guard verdict — served by `app.py`; `guard_server.py` (port 8010) is an optional isolated copy |
 | `POST` | `/explain` | `{ "decision": string, "evidence": array }` | Validated explanation or deterministic fallback |
 | `GET` | `/health` | — | `{ "ok": true, "service": "vigil-guard" }` |
 
@@ -365,12 +365,12 @@ node --check web/app.js && node --check web/vision.js
 
 Equivalent npm scripts (see `package.json`):
 
-```bash
-npm test                  # all offline suites
-npm run fixtures          # message / HTML / action engine fixtures
-npm run guard:fixtures    # agent-guard fixtures (5/5 pass, no Ollama needed)
-npm run guard:smoke       # guard smoke checks
-npm run guard:e2e         # end-to-end extension checks
+```bashnpm test                # all offline suites (incl. the guard-extension contract)
+npm run fixtures        # message/HTML/action engine fixtures
+npm run guard:fixtures  # agent-guard fixtures (5/5 pass, no Ollama needed)
+npm run guard:smoke     # live /guard + /explain smoke checks
+npm run guard:extension # extension fail-closed contract (no browser needed)
+npm run guard:e2e       # end-to-end extension checks (headless Chromium)
 npm run smoke             # server smoke test
 ```
 

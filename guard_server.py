@@ -1,7 +1,10 @@
-# guard_server.py — standalone agent-guard server (guide Steps 5 + 13).
+# guard_server.py — optional standalone agent-guard server (guide Steps 5 + 13).
 # ThreadingHTTPServer so a slow /explain never blocks /guard.
-# Run:  python3 guard_server.py          (default port 8000)
-#       VIGIL_GUARD_PORT=8010 python3 guard_server.py
+# app.py already serves /guard, /explain and /health on its own port, so this
+# standalone server is only needed when you want the guard isolated from the
+# analyzer. It therefore defaults to 8010, never the analyzer's 8000.
+# Run:  python3 guard_server.py          (default port 8010)
+#       VIGIL_GUARD_PORT=9010 python3 guard_server.py
 import json
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -9,7 +12,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import explain
 from guard import guard
 
-PORT = int(os.environ.get("VIGIL_GUARD_PORT", os.environ.get("VIGIL_PORT", "8000")))
+# Default 8010 so it can always run alongside app.py (which owns :8000).
+PORT = int(os.environ.get("VIGIL_GUARD_PORT") or "8010")
 HOST = os.environ.get("VIGIL_GUARD_HOST", "127.0.0.1")
 
 

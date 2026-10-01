@@ -4,7 +4,7 @@
 //   content script -> background.js -> POST /guard -> block card -> /explain.
 //
 // Prerequisites (run these first, from the repo root):
-//   python3 guard_server.py &
+//   python3 app.py &                 # serves /guard on :8000
 //   python3 -m http.server 9000 &
 //   npm i puppeteer   # any environment that has it; skipped in CI
 //
@@ -63,7 +63,8 @@ if (!fs.existsSync(path.join(EXT, "manifest.json"))) {
   process.exit(2);
 }
 if (!(await guardUp())) {
-  console.error("Guard server not reachable at " + GUARD + " — start it first: python3 guard_server.py");
+  console.error("Guard not reachable at " + GUARD + " — start it first: python3 app.py " +
+    "(it serves /guard on :8000; guard_server.py is the optional isolated copy on :8010)");
   process.exit(2);
 }
 
@@ -142,8 +143,10 @@ try {
 }
 await pageC.close();
 
-// 3. Guard server DOWN: control case — demo degrades to "Forwarded (!)".
-console.log("  ...stopping guard server for the unreachable-control case");
+// 3. Guard server DOWN: the extension must FAIL CLOSED (block the action).
+//    A guard that waves actions through whenever it is unreachable is worse
+//    than no guard at all, so this is the contract being verified here.
+console.log("  ...stopping guard server for the unreachable (fail-closed) case");
 let stopped = false;
 if (process.env.GUARD_PID) {
   try { process.kill(Number(process.env.GUARD_PID), "SIGTERM"); stopped = true; }
@@ -156,20 +159,24 @@ if (process.env.GUARD_PID) {
   } catch { stopped = false; }
 }
 for (let i = 0; i < 20 && (await guardUp()); i++) await sleep(250);
-check("control: guard server stopped", stopped && !(await guardUp()));
+check("guard server stopped for the unreachable case", stopped && !(await guardUp()));
 
 const page2 = await newDemoPage(browser);
+const before2 = await page2.evaluate(() => document.documentElement.childElementCount);
 await page2.click("#run");
 try {
   await page2.waitForFunction(
-    () => document.getElementById("out").textContent.includes("Forwarded (!)"),
+    () => document.getElementById("out").textContent.includes("BLOCKED by VIGIL"),
     { timeout: 20000 });
-  check("control: guard unreachable -> demo 'forwards' (no block card)", true);
+  check("guard unreachable -> action blocked (fail closed)", true);
 } catch {
   const out = await page2.evaluate(() => document.getElementById("out").textContent);
-  check("control: guard unreachable -> demo 'forwards' (no block card)", false,
+  check("guard unreachable -> action blocked (fail closed)", false,
     JSON.stringify(out.slice(0, 200)));
 }
+const after2 = await page2.evaluate(() => document.documentElement.childElementCount);
+check("guard unreachable -> block card shown", after2 === before2 + 1,
+  `children ${before2} -> ${after2}`);
 await page2.close();
 
 await browser.close();

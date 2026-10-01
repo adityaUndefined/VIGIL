@@ -7,6 +7,11 @@
 const GUARD_TRIVIALLY_SAFE = new Set(["", "about:blank"]);
 const TAG_BLACKLIST = ["SCRIPT", "STYLE", "NOSCRIPT"];
 
+// Fail closed: anything that is not an explicit ALLOW/WARN from the guard —
+// a missing verdict, a malformed one, or an unreachable guard — blocks.
+const isDenied = (verdict) =>
+  !verdict || !["ALLOW", "WARN"].includes(verdict.decision);
+
 function isHiddenFromHuman(el) {
   // both option spellings are passed because Chromium renamed them across versions
   const opts = { checkOpacity: true, checkVisibilityCSS: true, opacityProperty: true, visibilityProperty: true };
@@ -33,11 +38,30 @@ function collectHiddenText() {
   return hidden.join(" ").slice(0, 4000);
 }
 
-const askGuard = (action) =>
-  chrome.runtime.sendMessage({
-    type: "VIGIL_GUARD",
-    payload: { source: { url: location.href, hidden_text: collectHiddenText() }, action },
-  });
+// Never rejects: if the service worker itself cannot be reached we synthesise
+// a denial, so a broken extension can never silently allow an action.
+const askGuard = async (action) => {
+  try {
+    return await chrome.runtime.sendMessage({
+      type: "VIGIL_GUARD",
+      payload: { source: { url: location.href, hidden_text: collectHiddenText() }, action },
+    });
+  } catch (e) {
+    return {
+      decision: "DENY",
+      machine_tag: "VIGIL_UNREACHABLE",
+      reason: "The VIGIL guard could not be contacted, so the action was refused.",
+      evidence: [{
+        id: "GUARD-UNREACHABLE",
+        type: "guard_unreachable",
+        severity: "critical",
+        fact: "The extension could not reach the local VIGIL guard.",
+      }],
+      explanation: { summary: "VIGIL could not be contacted, so this action was blocked." },
+      error: String((e && e.message) || e),
+    };
+  }
+};
 
 function showBlock(verdict) {
   const host = document.createElement("div");
@@ -71,7 +95,7 @@ window.addEventListener("message", async (e) => {
   if (e.source !== window || e.data?.type !== "VIGIL_PROPOSE_ACTION") return;
   const verdict = await askGuard(e.data.action);
   window.postMessage({ type: "VIGIL_VERDICT", id: e.data.id, verdict }, "*");
-  if (verdict?.decision === "DENY") showBlock(verdict);
+  if (isDenied(verdict)) showBlock(verdict);
 });
 
 // (b) Form submits are held until the guard answers.
@@ -84,7 +108,7 @@ document.addEventListener("submit", async (e) => {
     args: { url: GUARD_TRIVIALLY_SAFE.has(form.action) ? location.href : form.action,
             fields: [...form.elements].map((x) => x.name).filter(Boolean).join(",") },
   });
-  if (verdict?.decision === "DENY") return showBlock(verdict);
+  if (isDenied(verdict)) return showBlock(verdict);
   form.dataset.vigilOk = "1";
   form.requestSubmit();
 }, true);
