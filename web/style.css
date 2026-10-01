@@ -40,33 +40,34 @@
 }
 
 :root[data-theme="dark"] {
-  /* Warm dark variant of the light theme: same hues, low-glare surfaces.
-     Ink/border flip to cream so the brutalist black-and-white identity is
-     preserved (dark cards, cream type and edges) — matching the light theme
-     which is cream cards with black ink. */
-  --page: #171512;
-  --surface: #23211D;
-  --surface-alt: #2E2B25;
-  --ink: #F3EFE6;
-  --muted: #B3AB9D;
-  --border-light: #4A453C;
-  --border-dark: #B9B2A2;
-  --verm: #FF7B51;
-  --shadow-brutal: 5px 5px 0 rgba(0, 0, 0, 0.55);
-  --shadow-brutal-lg: 7px 7px 0 rgba(0, 0, 0, 0.55);
+  /* Deep-charcoal editorial system: tonal separation instead of flat black.
+     page #0D0E0F · surfaces #151718 / elevated #1B1D1E · borders #2A2D2F
+     (strong #3A3E41) · warm off-white ink #F2F0E9 · muted #9A9B9A.
+     Cream typography and the vermilion security accent are preserved; the
+     brutalist hard-offset shadows give way to soft, layered elevation. */
+  --page: #0D0E0F;
+  --surface: #151718;
+  --surface-alt: #1B1D1E;
+  --ink: #F2F0E9;
+  --muted: #9A9B9A;
+  --border-light: #2A2D2F;
+  --border-dark: #3A3E41;
+  --verm: #E8603C;
+  --shadow-brutal: 0 16px 32px -20px rgba(0, 0, 0, 0.55);
+  --shadow-brutal-lg: 0 24px 44px -22px rgba(0, 0, 0, 0.62);
 
-  --allow-bg: #12301F;
-  --allow-text: #6EE7A8;
-  --warn-bg: #33270E;
-  --warn-text: #FBBF24;
-  --deny-bg: #3A1712;
-  --deny-text: #FCA5A0;
+  --allow-bg: #12241B;
+  --allow-text: #5BD99B;
+  --warn-bg: #292114;
+  --warn-text: #F0B44C;
+  --deny-bg: #2E1A15;
+  --deny-text: #F98D6B;
 
-  --header-glass: rgba(23, 21, 18, 0.88);
-  --nav-hover: rgba(243, 239, 230, 0.10);
-  --nav-active-fg: #171512;
-  --card: #23211D;
-  --gray-text: #B3AB9D;
+  --header-glass: rgba(13, 14, 15, 0.78);
+  --nav-hover: rgba(242, 240, 233, 0.06);
+  --nav-active-fg: #0D0E0F;
+  --card: #151718;
+  --gray-text: #9A9B9A;
 }
 
 body {
@@ -135,11 +136,17 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 3px 3px 0 var(--ink);
   transition: transform 0.1s;
 }
-/* White on vermilion is borderline in dark; darken the fill there. */
+/* White on vermilion is borderline in dark; deepen the fill there and trade
+   the hard offset shadow for a restrained accent glow. */
 :root[data-theme="dark"] .btn-primary {
-  background: #B23A17;
+  background: linear-gradient(180deg, #DE5B38, #B94320);
   color: #FFF4EC;
-  border-color: var(--border-dark);
+  border-color: rgba(232, 96, 60, 0.55);
+  box-shadow: 0 10px 24px -12px rgba(232, 96, 60, 0.45);
+}
+:root[data-theme="dark"] .btn-primary:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 14px 30px -12px rgba(232, 96, 60, 0.55);
 }
 .btn-primary:active {
   transform: translate(2px, 2px);
@@ -165,7 +172,7 @@ h1, h2, h3, h4, h5, h6 {
   -webkit-text-fill-color: transparent;
 }
 :root[data-theme="dark"] .text-accent {
-  background: linear-gradient(180deg, #FF7B51, #D14E24);
+  background: linear-gradient(180deg, #F2845F, #D95B36);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -289,19 +296,24 @@ h1, h2, h3, h4, h5, h6 {
 :root[data-theme="dark"] .text-black { color: var(--ink) !important; }
 :root[data-theme="dark"] .text-gray-500 { color: var(--gray-text) !important; }
 
-/* Hard-coded brutal shadows are ink-dark in light; in dark they become deep
-   black offsets so cards still "pop" without cream glare. */
+/* Hard-coded brutal shadows are ink-dark in light; in dark they soften into
+   layered elevation so cards read as surfaces, not pasted-on blocks. */
 :root[data-theme="dark"] .shadow-\[5px_5px_0_\#1C1A17\],
 :root[data-theme="dark"] .shadow-\[4px_4px_0_\#1C1A17\],
 :root[data-theme="dark"] .shadow-\[7px_7px_0_\#1C1A17\],
 :root[data-theme="dark"] .shadow-\[3px_3px_0_\#1C1A17\] {
-  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.55) !important;
+  box-shadow: 0 16px 32px -20px rgba(0, 0, 0, 0.6) !important;
 }
 
 /* Ink-colored brutal shadows from inline styles follow the theme too. */
 :root[data-theme="dark"] [style*="box-shadow: 3px 3px 0 var(--border-dark)"],
 :root[data-theme="dark"] [style*="box-shadow: 4px 4px 0 var(--border-dark)"] {
-  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.55) !important;
+  box-shadow: 0 14px 28px -18px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Inline "ink borders" (cream in dark) become quiet hairlines. */
+:root[data-theme="dark"] [style*="border-color: var(--ink)"] {
+  border-color: var(--border-light) !important;
 }
 
 /* Cream brand chip in the nav keeps cream-on-dark reading. */
@@ -528,4 +540,313 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: 0.06em;
   white-space: nowrap;
 }
-:root[data-theme="dark"] #trending-scam-level { color: #171512; }
+:root[data-theme="dark"] #trending-scam-level { color: #0D0E0F; }
+
+/* ================================================================== */
+/* DARK POLISH LAYER — premium charcoal editorial + security console  */
+/* Only :root[data-theme="dark"] rules below; the light theme keeps   */
+/* its neo-brutalist cream/ink look untouched.                        */
+/* ================================================================== */
+
+/* ── Ambient depth: two faint radial glows over the charcoal page.   */
+/*    2.5–4% alpha — perceptible depth, not decoration.               */
+:root[data-theme="dark"] body {
+  background:
+    radial-gradient(900px 480px at 78% -8%, rgba(232, 96, 60, 0.055), transparent 62%),
+    radial-gradient(760px 460px at 6% 30%, rgba(242, 240, 233, 0.028), transparent 60%),
+    var(--page);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Navbar: sits inside the dark theme, readable, quiet.            */
+:root[data-theme="dark"] header.sticky {
+  background: var(--header-glass) !important;
+  border-color: var(--border-light) !important;
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02), 0 12px 32px -24px rgba(0, 0, 0, 0.7);
+}
+:root[data-theme="dark"] header.sticky .nav-link { color: #B9BAB4; }
+:root[data-theme="dark"] header.sticky .nav-link:hover {
+  color: var(--ink);
+  background: var(--nav-hover);
+}
+:root[data-theme="dark"] header.sticky .nav-link.nav-active {
+  background: var(--ink);
+  color: #0D0E0F;
+  border-color: var(--ink);
+  box-shadow: 0 8px 20px -10px rgba(242, 240, 233, 0.25);
+}
+
+/* ── Shared dark surface treatment for cards and panels.            */
+:root[data-theme="dark"] .brutal-card {
+  background:
+    linear-gradient(180deg, rgba(242, 240, 233, 0.016), transparent 38%),
+    var(--surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 16px 32px -22px rgba(0, 0, 0, 0.65);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+:root[data-theme="dark"] .brutal-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-dark);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset, 0 24px 44px -24px rgba(0, 0, 0, 0.75);
+}
+
+/* ── Buttons / inputs / chips on dark.                              */
+:root[data-theme="dark"] .btn-secondary,
+:root[data-theme="dark"] .button-secondary {
+  border-color: var(--border-dark);
+  background: rgba(242, 240, 233, 0.02);
+}
+:root[data-theme="dark"] .btn-secondary:hover,
+:root[data-theme="dark"] .button-secondary:hover { background: rgba(242, 240, 233, 0.06); }
+:root[data-theme="dark"] .brutal-input {
+  background: #101112;
+  border: 1px solid var(--border-dark);
+  color: var(--ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+:root[data-theme="dark"] .brutal-input::placeholder { color: #6E6F6C; }
+:root[data-theme="dark"] .brutal-input:focus {
+  border-color: rgba(232, 96, 60, 0.65);
+  box-shadow: 0 0 0 3px rgba(232, 96, 60, 0.14);
+}
+:root[data-theme="dark"] .brutal-label {
+  border: 1px solid var(--border-dark);
+  background: rgba(242, 240, 233, 0.03);
+  color: var(--muted);
+}
+:root[data-theme="dark"] .theme-toggle {
+  border: 1px solid var(--border-dark);
+  background: var(--surface);
+  box-shadow: none;
+}
+:root[data-theme="dark"] .theme-toggle:hover { background: var(--surface-alt); }
+:root[data-theme="dark"] .theme-toggle:active { box-shadow: none; }
+:root[data-theme="dark"] .local-status {
+  border: 1px solid var(--border-dark);
+  background: var(--surface);
+  box-shadow: none;
+}
+:root[data-theme="dark"] .model-card,
+:root[data-theme="dark"] .verification-note,
+:root[data-theme="dark"] .llm-findings {
+  border: 1px solid var(--border-light);
+  background: var(--surface-alt);
+}
+:root[data-theme="dark"] .result-tools { border-top: 1px solid var(--border-light); }
+:root[data-theme="dark"] .result-tools button {
+  border: 1px solid var(--border-dark);
+  background: var(--surface);
+  box-shadow: none;
+}
+:root[data-theme="dark"] .result-tools button:hover { background: var(--surface-alt); }
+:root[data-theme="dark"] .result-tools button:active { box-shadow: none; }
+
+/* Landing hero label (AI-Powered Cybersecurity chip) */
+:root[data-theme="dark"] .hero-label {
+  background: rgba(242, 240, 233, 0.03) !important;
+  border-color: var(--border-dark) !important;
+}
+:root[data-theme="dark"] .hero-label .hero-label-text { color: #C9CAC3 !important; }
+
+/* ── Hero headline: one dominant line, tight editorial rhythm.       */
+:root[data-theme="dark"] .hero-title {
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+:root[data-theme="dark"] .hero-title .hero-dominant {
+  display: block;
+  font-size: 1.32em;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .hero-title .hero-accent-word {
+  color: var(--verm) !important;   /* beats the light-theme inline color */
+  text-shadow: 0 0 34px rgba(232, 96, 60, 0.35);
+}
+
+/* ── Action cards (Message / Email / URL): dark glass surfaces.      */
+:root[data-theme="dark"] .action-card {
+  position: relative;
+  border: 1px solid var(--border-light);
+  background:
+    linear-gradient(165deg, rgba(242, 240, 233, 0.045), transparent 42%),
+    var(--surface);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.035) inset, 0 14px 30px -20px rgba(0, 0, 0, 0.7);
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+:root[data-theme="dark"] .action-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(232, 96, 60, 0.5);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 0 0 1px rgba(232, 96, 60, 0.18),
+    0 22px 40px -22px rgba(0, 0, 0, 0.8),
+    0 0 26px -8px rgba(232, 96, 60, 0.16);
+}
+:root[data-theme="dark"] .action-card:active { transform: translateY(-1px); }
+:root[data-theme="dark"] .action-card .action-card-icon {
+  border: 1px solid var(--border-dark);
+  background: var(--surface-alt);
+  color: #D7D5CC;
+  transition: color 0.25s ease, border-color 0.25s ease, background 0.25s ease;
+}
+:root[data-theme="dark"] .action-card:hover .action-card-icon {
+  color: var(--verm);
+  border-color: rgba(232, 96, 60, 0.45);
+  background: rgba(232, 96, 60, 0.08);
+}
+:root[data-theme="dark"] .action-card .action-card-name { color: var(--ink); }
+:root[data-theme="dark"] .action-card .action-card-sub { color: var(--muted); }
+/* Selected card reads as intentional: accent edge + tinted wash.      */
+:root[data-theme="dark"] .action-card.action-card-active {
+  border-color: rgba(232, 96, 60, 0.6);
+  background:
+    linear-gradient(165deg, rgba(232, 96, 60, 0.09), transparent 46%),
+    var(--surface-alt);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 0 0 1px rgba(232, 96, 60, 0.22),
+    0 18px 36px -20px rgba(0, 0, 0, 0.75);
+}
+:root[data-theme="dark"] .action-card.action-card-active .action-card-icon {
+  color: var(--verm);
+  border-color: rgba(232, 96, 60, 0.5);
+  background: rgba(232, 96, 60, 0.1);
+}
+
+/* ── Live scan feed: a real security console.                        */
+:root[data-theme="dark"] .console-card {
+  background:
+    radial-gradient(560px 260px at 88% -12%, rgba(232, 96, 60, 0.07), transparent 60%),
+    linear-gradient(180deg, #17191A, #121314);
+  border: 1px solid var(--border-dark);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 48px -26px rgba(0, 0, 0, 0.85);
+}
+:root[data-theme="dark"] .console-card .console-title {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+:root[data-theme="dark"] .console-card .console-text {
+  font-family: var(--mono);
+  color: #C9CAC3;
+  line-height: 1.7;
+}
+:root[data-theme="dark"] .console-card .console-dot-red { background: #E5695B; box-shadow: 0 0 8px rgba(229, 105, 91, 0.55); }
+:root[data-theme="dark"] .console-card .console-dot-amber { background: #E8B04B; box-shadow: 0 0 8px rgba(232, 176, 75, 0.5); }
+:root[data-theme="dark"] .console-card .console-dot-green { background: #4FBF8B; box-shadow: 0 0 8px rgba(79, 191, 139, 0.5); }
+:root[data-theme="dark"] .console-card .verdict-chip-deny {
+  font-family: var(--mono);
+  background: var(--deny-bg);
+  color: var(--deny-text);
+  border: 1px solid rgba(249, 141, 107, 0.35);
+  box-shadow: 0 0 18px -6px rgba(249, 141, 107, 0.4);
+}
+:root[data-theme="dark"] .console-mini {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 14px 28px -22px rgba(0, 0, 0, 0.7);
+}
+:root[data-theme="dark"] .console-mini .mini-label-red { color: var(--deny-text); }
+:root[data-theme="dark"] .console-mini .mini-label-amber { color: var(--warn-text); }
+:root[data-theme="dark"] .console-mini .mini-code { font-family: var(--mono); color: var(--muted); }
+
+/* ── Stats strip: premium dashboard numbers.                         */
+:root[data-theme="dark"] .stats-strip {
+  background:
+    linear-gradient(180deg, rgba(242, 240, 233, 0.018), transparent 40%),
+    var(--surface);
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 20px 40px -26px rgba(0, 0, 0, 0.7);
+}
+:root[data-theme="dark"] .stats-strip .stat-number {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .stats-strip .stat-label {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Global-threat stat cards keep their status tint but on charcoal.    */
+:root[data-theme="dark"] .threat-card {
+  border: 1px solid var(--border-light);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 16px 32px -22px rgba(0, 0, 0, 0.65);
+}
+:root[data-theme="dark"] .threat-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-dark);
+}
+
+/* "How VIGIL shifts the balance" band: an elevated ink panel.          */
+:root[data-theme="dark"] .balance-card {
+  background: linear-gradient(180deg, #202223, #17191A) !important;
+  border-color: var(--border-dark) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 24px 48px -26px rgba(0, 0, 0, 0.8);
+}
+:root[data-theme="dark"] .balance-card .balance-title { color: var(--ink) !important; }
+:root[data-theme="dark"] .balance-card .balance-copy { color: #B9BAB4 !important; }
+
+/* ── Scanner console (scanner.html): technical, hierarchical.        */
+:root[data-theme="dark"] .console-shell {
+  background: var(--surface);
+  border: 1px solid var(--border-dark);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 24px 48px -26px rgba(0, 0, 0, 0.8);
+}
+:root[data-theme="dark"] .console-shell .input-modes {
+  background: #101112 !important;
+  border-color: var(--border-light) !important;
+}
+:root[data-theme="dark"] .console-shell .input-mode {
+  color: var(--muted);
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+:root[data-theme="dark"] .console-shell .input-mode:hover { color: var(--ink); background: rgba(242, 240, 233, 0.04); }
+:root[data-theme="dark"] .console-shell .input-mode.active {
+  background: var(--surface-alt) !important;
+  color: var(--ink) !important;
+  border-color: var(--border-dark) !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+:root[data-theme="dark"] .console-shell textarea,
+:root[data-theme="dark"] .console-shell input {
+  background: #101112 !important;
+  border: 1px solid var(--border-dark) !important;
+  color: var(--ink) !important;
+  font-family: var(--mono);
+}
+:root[data-theme="dark"] .console-shell .verdict-side {
+  background: #101112 !important;
+  border-color: var(--border-light) !important;
+}
+:root[data-theme="dark"] .console-shell .panel-label {
+  color: var(--muted) !important;
+  font-family: var(--mono);
+}
+:root[data-theme="dark"] .bg-\[\#E7F5EE\] {
+  background: var(--allow-bg) !important;
+  border: 1px solid rgba(91, 217, 155, 0.3);
+  color: var(--allow-text) !important;
+}
+
+/* Footer */
+:root[data-theme="dark"] footer {
+  background: transparent !important;
+  border-color: var(--border-light) !important;
+}
+
+/* Nav pill padding tweak lives in each page's head; keep dark hover soft. */
+:root[data-theme="dark"] header.sticky .nav-link {
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
