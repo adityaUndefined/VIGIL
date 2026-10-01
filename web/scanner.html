@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#F3EFE6">
   <title>VIGIL | Scanner</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -31,7 +31,7 @@
 <body class="antialiased text-[18px] leading-relaxed min-h-screen flex flex-col">
 
   <!-- ============ NAV ============ -->
-  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: rgba(243, 239, 230, 0.9);">
+  <header class="sticky top-0 z-40 border-b-2 backdrop-blur-md" style="border-color: var(--border-dark); background: var(--header-glass, rgba(243, 239, 230, 0.9));">
     <nav class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-y-2 px-5 py-4" aria-label="Main">
       <a href="/" class="inline-flex items-center gap-3 font-extrabold" style="font-size: 1.25em; font-family: var(--serif); color: var(--ink);">
         <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl text-white" style="background: var(--ink);">
@@ -45,7 +45,7 @@
         <a href="/agent-guard.html" class="nav-link">Agent Guard</a>
         <a href="/faqs.html" class="nav-link">FAQ</a>
       </div>
-      <div class="flex items-center gap-4">
+      <div class="ml-auto flex items-center gap-4">
         <div id="ollama-status" class="local-status offline" role="status" aria-live="polite" aria-atomic="true" title="Checking local model…"><span aria-hidden="true"></span><span class="local-status-label">Checking local model…</span></div>
         <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch theme" title="Switch theme">🌙</button>
       </div>
@@ -64,7 +64,7 @@
       </p>
     </div>
 
-    <div class="overflow-hidden rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
+    <div class="console-shell overflow-hidden rounded-3xl border-2 shadow-[7px_7px_0_#1C1A17]" style="background: var(--surface); border-color: var(--ink);">
       <form id="review-form">
         <!-- Tab Bar -->
         <div class="flex flex-wrap items-center gap-1 border-b-2 p-3 input-modes" style="border-color: var(--border-dark); background: var(--surface-alt);" role="tablist">
@@ -146,8 +146,8 @@
           </div>
 
           <!-- Verdict Side -->
-          <div class="border-t-2 md:border-t-0 md:border-l-2 p-6" style="border-color: var(--border-dark); background: var(--surface-alt);">
-            <p class="mb-4 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">Verdict</p>
+          <div class="verdict-side border-t-2 md:border-t-0 md:border-l-2 p-6" style="border-color: var(--border-dark); background: var(--surface-alt);">
+            <p class="panel-label mb-4 font-bold text-xs uppercase tracking-widest" style="color: var(--muted);">Verdict</p>
 
             <!-- VIGIL Vision status + result (rendered by vision.js) -->
             <div id="vision-status" class="vision-status hidden" role="status" aria-live="polite">

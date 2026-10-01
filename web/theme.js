@@ -30,7 +30,7 @@
     var dark = isDark();
     root.dataset.theme = dark ? 'dark' : 'light';
     var meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = dark ? '#171512' : '#f3f5f1';
+    if (meta) meta.content = dark ? '#0d0e0f' : '#f3f5f1';
   }
 
   // 1) Pre-paint: runs immediately, before the body exists.
