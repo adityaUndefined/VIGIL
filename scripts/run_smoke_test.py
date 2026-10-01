@@ -126,31 +126,44 @@ def check_static_assets(base_url: str) -> None:
     _, _, html = http(base_url, "/")
     text = html.decode("utf-8", "replace")
     require("VIGIL" in text and "Private Security Review" in text, "/ is missing the VIGIL page markup")
-    # Topbar nav (Vision / Agent guard / FAQ), #scanner workbench anchor, and
-    # the VIGIL Vision screenshot mode with its local OCR engine.
-    require('id="scanner"' in text, "/ is missing the #scanner section target")
-    require('data-vision-link' in text and 'href="#vision"' in text,
-            "topbar VIGIL Vision link is missing")
-    require('href="#agent-review"' in text and 'id="agent-review"' in text,
-            "topbar Agent guard link or the #agent-review box is missing")
-    require('href="#faq"' in text and 'id="faq"' in text, "topbar FAQ link or the #faq section is missing")
-    require('href="#scanner"' not in text,
-            "topbar should not link the Scanner anchor directly")
-    require('href="#how-it-works"' not in text,
-            "topbar should not link the How-it-works section")
-    require('data-mode="vision"' in text and 'id="vision-panel"' in text and 'id="vision-dropzone"' in text,
-            "/ is missing the VIGIL Vision screenshot UI")
-    require('data-mode="scan"' not in text and 'id="scan-panel"' not in text,
+    # Multi-page IA: the landing links the dedicated Scanner / Agent Guard /
+    # FAQ pages, carries the local-model status chip and the Trending Scams
+    # section fed by GET /api/trending.
+    require('href="/scanner.html"' in text, "/ is missing the Scanner page link")
+    require('href="/agent-guard.html"' in text, "/ is missing the Agent Guard page link")
+    require('href="/faqs.html"' in text, "/ is missing the FAQ page link")
+    require('id="ollama-status"' in text and 'local-status-label' in text,
+            "/ is missing the local-model status chip")
+    require('id="trending-scam-title"' in text and 'id="trending-scam-desc"' in text and 'id="trending-scam-level"' in text,
+            "/ is missing the Trending Scams section")
+    require('id="theme-toggle"' in text, "/ is missing the theme toggle")
+
+    # Scanner page: workbench, all three content modes, the VIGIL Vision
+    # screenshot mode with its local OCR engine, and the model review UI.
+    _, _, scanner_html = http(base_url, "/scanner.html")
+    scanner = scanner_html.decode("utf-8", "replace")
+    require('id="review-form"' in scanner and 'id="analyze"' in scanner,
+            "/scanner.html is missing the review workbench")
+    require('data-mode="vision"' in scanner and 'id="vision-panel"' in scanner and 'id="vision-dropzone"' in scanner,
+            "/scanner.html is missing the VIGIL Vision screenshot UI")
+    require('data-mode="scan"' not in scanner and 'id="scan-panel"' not in scanner,
             "the legacy screenshot (OCR) scan mode should be removed in favor of VIGIL Vision")
-    require('id="faq"' in text and 'class="faq-item"' in text, "/ is missing the FAQ section")
-    require(text.count('class="faq-item"') >= 6, "FAQ section should cover at least six questions")
-    require("warning signs of a scam" in text and "phishing" in text.lower(),
-            "FAQ is missing the core scam warning-signs guidance")
-    require("tesseract" in text.lower(), "the on-device OCR engine script is not referenced")
+    require("tesseract" in scanner.lower(), "the on-device OCR engine script is not referenced")
+    require('class="model-card' in scanner and 'id="verification-note"' in scanner and 'id="llm-findings"' in scanner,
+            "/scanner.html is missing the local model review UI")
+
+    # FAQ page: at least six questions in the brutalist accordion.
+    _, _, faqs_html = http(base_url, "/faqs.html")
+    faqs = faqs_html.decode("utf-8", "replace")
+    require('brutal-accordion' in faqs, "/faqs.html is missing the FAQ accordion")
+    require(faqs.count('class="brutal-accordion"') >= 6, "FAQ page should cover at least six questions")
+
+    # Frontend scripts: clearResult is exposed for vision.js, visionModeEnter
+    # lives in vision.js, and app.js polls the model review job.
     _, _, script = http(base_url, "/app.js")
     app_js = script.decode("utf-8", "replace")
-    require("goToScanner" in app_js and "visionModeEnter" in app_js and "clearResult" in app_js,
-            "/app.js scanner navigation must call window.visionModeEnter (vision.js) and expose clearResult")
+    require("clearResult" in app_js and "pollModelReview" in app_js and "refreshModelStatus" in app_js,
+            "/app.js must expose clearResult, poll the model review, and refresh model status")
     _, _, vision_js = http(base_url, "/vision.js")
     require("visionModeEnter" in vision_js.decode("utf-8", "replace"),
             "/vision.js is missing the visionModeEnter entry point")
