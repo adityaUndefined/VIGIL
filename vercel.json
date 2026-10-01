@@ -66,6 +66,10 @@
       "destination": "/web/telegram-qr.png"
     },
     {
+      "source": "/telegram_qr.png",
+      "destination": "/web/telegram_qr.png"
+    },
+    {
       "source": "/demo-agent-page",
       "destination": "/web/demo-agent-page.html"
     },

@@ -529,3 +529,56 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
 }
 :root[data-theme="dark"] #trending-scam-level { color: #171512; }
+
+/* --- Tailwind Dark Mode Overrides --- */
+:root[data-theme="dark"] .bg-white,
+:root[data-theme="dark"] .bg-blue-50\/50,
+:root[data-theme="dark"] [style*="background: white"] {
+  background-color: var(--surface) !important;
+}
+
+:root[data-theme="dark"] .text-black,
+:root[data-theme="dark"] .text-gray-900,
+:root[data-theme="dark"] .text-gray-800,
+:root[data-theme="dark"] [style*="color: #000"],
+:root[data-theme="dark"] [style*="color: black"] {
+  color: var(--ink) !important;
+}
+
+:root[data-theme="dark"] .text-gray-600,
+:root[data-theme="dark"] .text-gray-500 {
+  color: var(--muted) !important;
+}
+
+/* Fix specific backgrounds that were hardcoded */
+:root[data-theme="dark"] [style*="background: rgba(243, 239, 230, 0.9)"] {
+  background: var(--header-glass) !important;
+}
+
+/* Fix the Launch Scanner button. It has style="background: var(--ink); color: var(--page);" and class "text-white".
+   In dark mode, --page is dark, so text should NOT be forced to white. */
+:root[data-theme="dark"] [style*="color: var(--page)"] {
+  color: var(--page) !important;
+}
+
+/* Fix the VIGIL logo icon which has text-white and background: var(--ink).
+   In dark mode, it needs dark text since --ink is light. */
+:root[data-theme="dark"] .global-nav-logo span {
+  color: var(--page) !important;
+}
+
+/* Fix the blue theme colors in the cards to match brutalist style */
+:root[data-theme="dark"] [style*="background: #3B82F6"],
+:root[data-theme="dark"] .bg-blue-500 {
+  background: var(--ink) !important;
+  color: var(--page) !important;
+}
+
+:root[data-theme="dark"] [style*="color: #3B82F6"] {
+  color: var(--verm) !important;
+}
+
+:root[data-theme="dark"] span[style*="background: var(--ink)"] { color: var(--page) !important; }
+:root[data-theme="dark"] [style*="background: rgba(28,26,23,0.12)"] { background: rgba(243,239,230,0.06) !important; }
+:root[data-theme="dark"] [style*="box-shadow: 6px 6px 0 var(--border-dark)"] { box-shadow: 6px 6px 0 rgba(0,0,0,0.65) !important; }
+

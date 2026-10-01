@@ -970,6 +970,10 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/demo-agent-page":
             target = WEB / "demo-agent-page.html"
             content_type = "text/html; charset=utf-8"
+
+        elif path == "/telegram_qr.png":
+            target = WEB / "telegram_qr.png"
+            content_type = "image/png"
         elif path == "/favicon.svg":
             target = WEB / "favicon.svg"
             content_type = "image/svg+xml; charset=utf-8"
