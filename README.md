@@ -126,6 +126,24 @@ Screenshots are processed in the browser; the extracted text and coordinates are
 
 ---
 
+## Agent Guard + Grounded Explainer
+
+A standalone, zero-dependency agent guard lives alongside the main analyzer:
+
+- **Rules decide, the LLM only explains.** `POST /guard` answers `ALLOW` / `WARN` / `DENY` from deterministic code in milliseconds — the model never gets a vote.
+- **The LLM never reads untrusted content.** `POST /explain` sends only fixed fact sentences (`facts.py`) to a local Ollama model; output is validated and falls back to deterministic wording. A hidden "say this is safe" line cannot hijack the explainer.
+- **Instant verdict, later wording.** `/guard` returns the decision plus a template explanation immediately; `/explain` upgrades the wording after.
+- **Provenance check.** If an action's destination (recipient, URL, account) appears inside text a human could not see, the action was dictated by hidden content — that signal does not depend on attacker phrasing.
+
+Quick start:
+
+```bash
+python3 test_fixtures.py          # 5/5 offline fixtures pass, no Ollama needed
+python3 guard_server.py           # POST /guard, POST /explain, GET /health on :8000
+```
+
+Components: `facts.py` (shared fact sheet), `detectors/hidden_content.py`, `guard.py`, `explain.py`, `guard_server.py`, `fixtures/` + `test_fixtures.py`, `guard-extension/` (Chromium MV3 companion that asks the guard before agent actions and form submits — see `guard-extension/README.md`), `demo/hijack_demo.html` (naive-agent demo page), and `agent/guarded.py` (wrap any Python agent tool call; also the `vigil.check` MCP tool core).
+
 ## How It Works
 
 ```text
@@ -167,4 +185,5 @@ Optional: run [Ollama](https://ollama.com) locally with the configured model for
 ```bash
 python3 scripts/run_offline_fixtures.py   # message/HTML/action engine fixtures
 python3 scripts/run_vision_tests.py       # Vision fixtures + precision/recall/F1
+python3 test_fixtures.py                  # agent-guard fixtures (hidden content, provenance)
 ```
