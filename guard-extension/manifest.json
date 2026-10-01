@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "VIGIL Agent Guard",
+  "version": "1.0.0",
+  "description": "Asks the local VIGIL guard before any agent-proposed action or form submit on a page. DENY shows a block card.",
+  "host_permissions": [
+    "http://127.0.0.1:8000/*",
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["guard-content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
